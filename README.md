@@ -50,10 +50,19 @@ comparables reales, señales tácticas, cartera personal y recomendaciones de in
 ## Instalación
 
 ```bash
+python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"      # o: python3 -m pip install -e ".[dev]"
 ```
 
-Si `venv` no está disponible, ver `docs/KNOWN_ISSUES.md`.
+El proyecto **no tiene dependencias de ejecución**: solo la biblioteca estándar de Python
+(3.10 o superior). El extra `[dev]` añade `pytest` y `ruff`. Verificado el 2026-10-31 en un
+entorno virtual aislado a partir de una copia limpia del repositorio.
+
+## Integración continua
+
+`.github/workflows/ci.yml` ejecuta en cada Pull Request y en cada push a `main`: instalación
+editable del paquete, `ruff check`, importación de todos los módulos, la suite de pruebas y
+una comprobación de la CLI, sobre Python 3.10 y 3.12.
 
 ## Uso
 

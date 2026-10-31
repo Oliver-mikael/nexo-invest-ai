@@ -1,5 +1,49 @@
 # CHANGELOG — Nexo Invest AI
 
+## No publicado — 2026-10-31 (Ciclo 4: integridad del repositorio)
+
+Objetivo: que el repositorio contenga el proyecto completo y que lo que se publique sea
+verificable, sin cambiar el comportamiento del motor.
+
+### Tarea 1 — Recuperar el código ausente
+
+- La publicación anterior (`ba81e9c`) solo incluía 24 de los 63 ficheros. Faltaban los 13
+  módulos de `src/nexo_invest/` (`analysis.py`, `backtest.py`, `strategies.py`, `core/`
+  completo, `data/__init__.py`, `data/nasdaq.py`, `data/prices.py`), 12 ficheros de pruebas,
+  6 documentos, 6 informes y `scripts/update_reports.sh`. Una descarga del repositorio no
+  podía importar el paquete (`ModuleNotFoundError: nexo_invest.core`).
+- Se recupera el código original sin reescribirlo y sin inventar módulos.
+- `.gitignore` nuevo: secretos, cachés (`.cache`, `.sec_cache`, `.pytest_cache`), entornos
+  virtuales, `backups/` y ZIPs de respaldo quedan fuera de Git.
+
+### Tarea 2 — Defectos corregidos
+
+- Tres anotaciones citaban clases nunca importadas (`ProvenanceRegistry`, `FiscalCalendar`,
+  `FinancialState`): no fallaban en ejecución por `from __future__ import annotations`, pero
+  rompían cualquier comprobación de tipos. Se importan en ejecución cuando no hay ciclo y bajo
+  `TYPE_CHECKING` cuando sí lo hay (`core.metrics` ↔ `core.sources`).
+- Los cuatro conjuntos de campos de `ProvenanceRegistry` se declaran `ClassVar`: son constantes
+  de clase compartidas, no estado mutable por instancia.
+- `Money.is_missing` usa `math.isnan` en lugar de `value != value`.
+- 32 imports sin usar eliminados en código y pruebas; se quita un `try/except` inútil en
+  `tests/test_sources.py`.
+- `pyyaml` se retira de las dependencias: no se importaba en ningún módulo. El paquete pasa a
+  no requerir dependencias de ejecución.
+
+### Tarea 3 — Verificación reproducible
+
+- Instalación desde copia limpia (`git archive`) en un entorno virtual aislado con
+  `pip install -e ".[dev]"`: **391 pruebas pasan, 1 omitida**.
+- CI nuevo en `.github/workflows/ci.yml`: instalación, `ruff check`, importación de todos los
+  módulos, suite completa y comprobación de la CLI en Python 3.10 y 3.12.
+- `[tool.ruff.lint]` fija las reglas (E4, E7, E9, F, W) para que la comprobación sea estable.
+
+### Limitaciones que se mantienen
+
+- El motor no cambia: siguen en pie las limitaciones de datos de los ciclos 2 y 3 (TTM de Apple
+  no disponible en la fuente, Nasdaq no es fuente primaria independiente, precios de Yahoo no
+  oficiales).
+
 ## 0.3.0 — 2026-10-28 (Ciclo 3)
 
 Objetivo: demostrar que los datos de la empresa, el precio de mercado y la valoración

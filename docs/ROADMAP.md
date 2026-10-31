@@ -256,6 +256,29 @@ Próximas tareas:
   `reports/backtest-aapl-2026-10-28.md` (corregido). Reproducción byte a byte salvo la
   línea de fecha.
 
+## Ciclo 4 (no publicado) — Integridad del repositorio y verificación continua
+
+### Hito 1 — Repositorio completo: COMPLETADO
+
+- `main` contenía 24 de los 63 ficheros; el resto solo existía en el workspace. Se recuperan
+  los 13 módulos, 12 ficheros de pruebas, 6 documentos, 6 informes y el script de actualización.
+- Verificado importando todos los módulos y ejecutando la suite desde una copia limpia.
+
+### Hito 2 — Defectos de tipado y código muerto: COMPLETADO
+
+- Tres anotaciones con nombres sin importar, cuatro constantes de clase mal tipadas,
+  comparación NaN reescrita, 32 imports muertos y una dependencia (`pyyaml`) nunca usada.
+- `ruff` pasa sin errores con un conjunto de reglas fijado en `pyproject.toml`.
+
+### Hito 3 — Integración continua: COMPLETADO
+
+- `.github/workflows/ci.yml`: instalación, Ruff, importación de módulos, pruebas y CLI en
+  Python 3.10 y 3.12, en cada Pull Request y push a `main`.
+
+### Hito 4 — Instalación aislada verificada: COMPLETADO
+
+- Copia limpia instalada en `venv` y 391 pruebas ejecutadas sin depender del workspace.
+
 ## Prioridades inmediatas
 
 - **Fuente primaria realmente independiente** (documento original en HTML de la SEC, otro

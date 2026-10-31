@@ -1,14 +1,16 @@
 # KNOWN_ISSUES — Nexo Invest AI
 
-Actualizado: 2026-10-28 · Versión: 0.3.0
+Actualizado: 2026-10-31 · Versión: 0.3.0
 
 Este documento recoge las limitaciones **reales y comprobadas** del sistema, no las que
 existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
 
 ## Limitaciones del entorno
 
-- `venv` no disponible: el proyecto se instaló con `pip3 install -e ".[dev]"` sobre el Python
-  del sistema (3.10.12). Para aislar dependencias hay que hacerlo en un entorno con `venv`.
+- ~~`venv` no disponible~~: **resuelto y comprobado el 2026-10-31**. `python3 -m venv` funciona;
+  una copia limpia del repositorio (exportada con `git archive`) se instaló con
+  `pip install -e ".[dev]"` en un entorno virtual aislado y ejecutó las 391 pruebas sin
+  depender del workspace.
 - Sin programación persistente de tareas: no hay demonio ni servicio que ejecute
   `scripts/update_reports.sh` solo. Se lanza a mano o desde el programador del sistema del
   usuario (`cron`, `systemd timer`, Programador de tareas). **No existe automatización diaria.**

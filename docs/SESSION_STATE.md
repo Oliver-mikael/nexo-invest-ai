@@ -1,9 +1,10 @@
 # Estado de la sesión — Nexo Invest AI
 
-Fecha de esta sesión: 2026-10-28 (Ciclo 3)
+Fecha de esta sesión: 2026-10-31 (Ciclo 4)
 Espacio de trabajo: `/home/daytona/codebase`
-Repositorio remoto: `Oliver-mikael/nexo-invest-ai` (privado)
+Repositorio remoto: `Oliver-mikael/nexo-invest-ai` (público desde el 2026-10-31)
 Versión del producto: 0.3.0
+Rama de trabajo: `feat/complete-source-integration` (Pull Request abierto contra `main`)
 
 Documento de continuidad: lo que necesitas para retomar el trabajo sin reconstruir contexto.
 
@@ -22,7 +23,9 @@ precio de mercado comprobado, y aun con él no recomienda.
 
 Raíz:
 - `README.md` — propósito, uso, estructura, niveles de procedencia, limitaciones.
-- `pyproject.toml` — Python 3.10, hatchling, CLI `nexo`, `pyyaml`, `pytest` como dev dependency.
+- `pyproject.toml` — Python 3.10, hatchling, CLI `nexo`, **sin dependencias de ejecución**
+  (`pytest` y `ruff` solo como dev extra) y reglas de Ruff fijadas.
+- `.github/workflows/ci.yml` — CI: instalación, Ruff, import de todos los módulos, pruebas y CLI.
 - `scripts/update_reports.sh` — regenera informes y prueba histórica con registro de éxito/fallo.
 - `reports/` — informes reales generados (ver abajo).
 - `backups/` — respaldos históricos por fecha (los anteriores no se tocan).
@@ -85,7 +88,7 @@ Raíz:
 ## Estado de las pruebas
 
 ```
-python3 -m pytest        →  303 passed, 1 skipped
+python3 -m pytest        →  391 passed, 1 skipped
 ```
 
 Reparto por archivo: analysis_report 26, backtest 26, backtest_audit 10, dcf 21, metrics 21,
@@ -94,14 +97,16 @@ units 17, verification 25, verify_cli 4. El test omitido depende de red por dise
 
 ## Estado de Git
 
-- Rama: `main`. Commit base: `0589554` (Initial commit, solo README.md).
-- Esta sesión **no** ha hecho commit ni push. Todo el trabajo está sin stagear.
-- No se ha modificado ninguna rama remota.
-- El panel de cambios de Freebuff es el que gestiona guardar, commit y push.
+- `main` permanece en `ba81e9c`; el trabajo va en `feat/complete-source-integration`.
+- La publicación anterior (`ba81e9c`) solo contenía 24 ficheros: 13 módulos de `src/`, 12 ficheros
+  de pruebas, 6 documentos, 6 informes y el script quedaron fuera. El Ciclo 4 los recupera y el
+  repositorio pasa a 63 ficheros versionados, con `.gitignore` para secretos, cachés y ZIPs.
+- Cualquier cambio se revisa en un Pull Request; `main` no se toca desde el workspace.
 
 ## Restricciones activas
 
-- Sin `venv`: instalación con `pip3 install -e ".[dev]"` sobre el Python del sistema.
+- `venv` **sí** está disponible (comprobado el 2026-10-31); la instalación principal del
+  workspace sigue siendo `pip install -e ".[dev]"` sobre el Python del sistema (3.10.12).
 - Sin programación persistente de tareas: `scripts/update_reports.sh` se lanza a mano.
 - `NEXO_SEC_CONTACT` debe contener un correo real antes de consultar la SEC; sin él responde 403.
 - **`api.nasdaq.com` corta en silencio (timeout) los `User-Agent` con URL de contacto**;
