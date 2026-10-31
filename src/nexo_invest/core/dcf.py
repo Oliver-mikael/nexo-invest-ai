@@ -99,14 +99,11 @@ def run_dcf(
 
     # Valor terminal (Gordon growth) sobre el último FCF proyectado
     last_fcf = projected[-1].free_cash_flow
-    if assumptions.terminal_growth >= 0:
-        terminal_value = last_fcf * (1.0 + assumptions.terminal_growth) / (
-            assumptions.discount_rate - assumptions.terminal_growth
-        )
-    else:
-        terminal_value = last_fcf * (1.0 + assumptions.terminal_growth) / (
-            assumptions.discount_rate - assumptions.terminal_growth
-        )
+    # Gordon Growth. La fórmula es la misma con crecimiento terminal negativo, así que
+    # no hay dos ramas: duplicarlas solo servía para que pareciera que sí.
+    terminal_value = last_fcf * (1.0 + assumptions.terminal_growth) / (
+        assumptions.discount_rate - assumptions.terminal_growth
+    )
 
     last_df = projected[-1].discount_factor
     terminal_value_pv = terminal_value * last_df
@@ -353,7 +350,11 @@ def build_valuation(
                 "net_debt": (
                     "incluida en el calculo del valor de patrimonio"
                     if net_debt is not None
-                    else "desconocida: valor de patrimonio = valor de empresa (no se asume cero)"
+                    else (
+                        "desconocida: valor de patrimonio = valor de empresa; "
+                        "la deuda neta no se descuenta y la cifra por acción ignora la "
+                        "deuda real (limitación declarada, no deuda cero comprobada)"
+                    )
                 ),
             },
         )
