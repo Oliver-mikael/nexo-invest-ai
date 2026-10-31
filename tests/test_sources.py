@@ -13,7 +13,7 @@ from nexo_invest.core.sources import (
     Scale,
 )
 from nexo_invest.core.units import Money, Period, Frequency
-from nexo_invest.core.metrics import FinancialState, IncomeStatement, BalanceSheet
+from nexo_invest.core.metrics import FinancialState, IncomeStatement
 from nexo_invest.core.periods import FiscalCalendar
 
 
@@ -86,13 +86,6 @@ def simulated_registry() -> ProvenanceRegistry:
 
 
 def quarterly_periods(cal: FiscalCalendar, start_year: int, start_month: int, count: int):
-    from dateutil.relativedelta import relativedelta
-    try:
-        from dateutil.relativedelta import relativedelta
-        have_dateutil = True
-    except Exception:
-        have_dateutil = False
-
     periods = []
     month = start_month
     year = start_year

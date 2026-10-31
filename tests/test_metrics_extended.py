@@ -235,7 +235,6 @@ class TestRealCompanyIndicators:
         import json
         from pathlib import Path
 
-        from nexo_invest.core.periods import FiscalCalendar
         from nexo_invest.data.sec_edgar import (
             build_registry_from_companyfacts,
             fiscal_calendar_for,

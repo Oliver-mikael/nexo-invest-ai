@@ -435,7 +435,7 @@ class RealCompanyReport:
             lines.append(f"| Moneda | {first.currency} |")
             lines.append(f"| Escala | {first.scale.value if first.scale else 'n/d'} |")
             lines.append(f"| SHA-256 del contenido | {first.hash or 'no registrado'} |")
-        lines.append(f"| Formularios aceptados | 10-K, 10-Q, 20-F, 40-F |")
+        lines.append("| Formularios aceptados | 10-K, 10-Q, 20-F, 40-F |")
         lines.append(f"| Fuentes registradas | {len(registry.sources)} |")
         lines.append(f"| Observaciones registradas | {len(registry.observations)} |")
         lines.append("")
@@ -844,7 +844,7 @@ class RealCompanyReport:
         lines.append(f"Observaciones : {len(self.result.registry.observations)} "
                      f"({self.quality_summary()['validated']} validadas, "
                      f"{self.quality_summary()['corroborated']} corroboradas)")
-        lines.append(f"Estado        : ProvenanceRegistry -> FinancialState -> FinancialMetrics")
+        lines.append("Estado        : ProvenanceRegistry -> FinancialState -> FinancialMetrics")
         lines.append(f"Indicadores   : margen bruto {_fmt_pct(m.gross_margin)}, "
                      f"ROIC {_fmt_pct(m.roic_nopat)}, "
                      f"deuda neta {_fmt_money(m.net_debt)}")

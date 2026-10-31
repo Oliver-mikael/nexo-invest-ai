@@ -6,9 +6,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from nexo_invest import __version__
-from nexo_invest.core.dcf import DCFRun, DCFAssumptions, run_dcf
+from nexo_invest.core.dcf import DCFAssumptions, run_dcf
 from nexo_invest.core.metrics import FinancialMetrics, FinancialState, IncomeStatement, BalanceSheet, CashFlow
-from nexo_invest.core.units import Money, Period, Frequency, Scale
+from nexo_invest.core.units import Money, Period, Frequency
 from nexo_invest.core.periods import FiscalCalendar
 
 

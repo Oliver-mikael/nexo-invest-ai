@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from nexo_invest.core.report import AnalysisReport
 from nexo_invest.core.metrics import FinancialMetrics

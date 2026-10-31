@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-from nexo_invest.core.units import Frequency, Money, Period
+from nexo_invest.core.units import Money, Period
 
 
 @dataclass

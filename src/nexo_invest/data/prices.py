@@ -30,7 +30,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 from nexo_invest.core.sources import DataOrigin, DataSource, DataType, ProvenanceLevel, VerificationState
 from nexo_invest.data.sec_edgar import FetchRecord

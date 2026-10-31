@@ -4,8 +4,6 @@ import pytest
 
 from nexo_invest.core.dcf import (
     DCFAssumptions,
-    DCFRun,
-    ProjectedYear,
     discount_factor,
     run_dcf,
     sensitivity_table,
@@ -146,10 +144,8 @@ class TestSensitivityTable:
 class TestScenarioAndComparables:
     def test_scenario_params_and_valuation(self):
         from nexo_invest.core.dcf import (
-            Scenario, Comparable, multiples_from_comparables,
-            build_valuation, ValuationResult, DCFAssumptions, Money
+            Scenario, build_valuation, Money
         )
-        from nexo_invest.core.sources import DataOrigin, VerificationState
         from nexo_invest.core.units import Scale
         base = Money(100.0, "USD", Scale.MILLIONS)
         scenarios = [

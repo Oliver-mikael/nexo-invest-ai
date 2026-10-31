@@ -37,7 +37,6 @@ from nexo_invest.core.sources import (
     DataOrigin,
     DataSource,
     DataType,
-    ProvenanceLevel,
     VerificationState,
 )
 from nexo_invest.data.sec_edgar import FetchRecord

@@ -16,8 +16,6 @@ import pytest
 
 from nexo_invest.data.nasdaq import (
     NasdaqError,
-    NasdaqFinancials,
-    NasdaqHistory,
     financials_from_fixture,
     historical_from_fixture,
     parse_financials,

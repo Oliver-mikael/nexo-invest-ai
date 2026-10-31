@@ -14,7 +14,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 from nexo_invest.cli import main
 from nexo_invest.data.nasdaq import (

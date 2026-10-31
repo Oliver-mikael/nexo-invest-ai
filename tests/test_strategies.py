@@ -19,7 +19,6 @@ from nexo_invest.core.metrics import (
     FinancialState,
     IncomeStatement,
 )
-from nexo_invest.core.periods import FiscalCalendar
 from nexo_invest.core.units import Frequency, Money, Period, Scale
 from nexo_invest.data.sec_edgar import build_registry_from_companyfacts, fiscal_calendar_for
 from nexo_invest.strategies import (

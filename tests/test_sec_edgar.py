@@ -20,7 +20,6 @@ from nexo_invest.core.sources import (
     DataOrigin,
     ProvenanceLevel,
     ProvenanceRegistry,
-    VerificationState,
 )
 from nexo_invest.core.units import Frequency, Money, Scale
 from nexo_invest.data.sec_edgar import (
