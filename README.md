@@ -9,7 +9,7 @@ para evaluar una empresa.
 
 ## Estado actual
 
-Versión: 0.3.0 · Rama: `main` · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
+Versión: 1.0.0 (plataforma) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
 
 Lo que hoy funciona de verdad:
 
@@ -45,7 +45,62 @@ Lo que hoy funciona de verdad:
 
 Lo que **no** está: fuente primaria independiente de la propia empresa (Nasdaq
 repite el mismo documento presentado), precios verificados de mercados oficiales,
-comparables reales, señales tácticas, cartera personal y recomendaciones de inversión.
+comparables reales, señales tácticas y recomendaciones de inversión.
+
+## Plataforma web, móvil y multi-IA (v1.0)
+
+Sobre el motor se construyó un producto completo, con backend, base de datos y PWA:
+
+- **API FastAPI versionada** (`/api/v1`) con autenticación por token, aislamiento por
+  usuario, errores uniformes, límites de peticiones y documentación OpenAPI en `/docs`.
+- **Persistencia** SQLAlchemy 2 + Alembic: usuarios, sesiones, empresas, instantáneas,
+  trabajos, informes, cartera simulada, consumo y auditoría. SQLite en desarrollo,
+  PostgreSQL en producción.
+- **Orquestador multi-IA** independiente del proveedor (OpenAI y compatibles, Anthropic,
+  Gemini, modelos locales): cinco roles —investigador, analista, auditor, contrario y
+  coordinador—, presupuesto por trabajo, reintentos, cancelación y recuperación tras
+  reinicios. Sin claves funciona en **modo básico**: informe del motor, sin texto inventado.
+- **Auditoría de evidencia** determinista: cada cifra citada por la IA se contrasta con el
+  expediente; las que no tienen respaldo se marcan en el informe.
+- **Informe de 18 secciones** con etiquetas por sección (hecho, fuente, interpretación de
+  IA, supuesto, estimación, no disponible) y exportación a Markdown, CSV y HTML imprimible.
+- **Cartera simulada**: compras y ventas ficticias, coste medio, beneficio realizado y no
+  realizado. Sin dinero real ni órdenes.
+- **PWA instalable**: manifest, iconos, service worker propio y página offline. El service
+  worker **no cachea** `/api`: las cifras financieras no quedan en el dispositivo.
+
+Arquitectura, decisiones, tabla de endpoints y límites: [`docs/PLATFORM.md`](docs/PLATFORM.md).
+
+### Arranque rápido
+
+```bash
+# 1. Backend
+pip install -e "[dev]"
+alembic upgrade head
+export NEXO_SEC_CONTACT="tu-correo@dominio.com"
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+# API y documentación: http://localhost:8000/docs
+
+# 2. Interfaz (otra terminal)
+cd web && npm install && npm run dev     # http://localhost:5173 con proxy a /api
+
+# 3. Build servido por el propio backend
+cd web && npm run build                  # genera web/dist; FastAPI lo sirve en /
+```
+
+Docker (API + PostgreSQL + PWA en una sola imagen):
+
+```bash
+docker compose up -d --build
+```
+
+### Pruebas
+
+```bash
+pytest              # motor (397) + plataforma (37), sin red
+ruff check src app tests
+cd web && npm run typecheck && npm run build
+```
 
 ## Instalación
 
