@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -77,7 +78,7 @@ class Money:
     ) -> None:
         if isinstance(scale, str):
             scale = Scale.from_str(scale)
-        if value is None or (isinstance(value, float) and value != value):
+        if value is None or (isinstance(value, float) and math.isnan(value)):
             object.__setattr__(self, "value", float("nan"))
         else:
             object.__setattr__(self, "value", float(value))
@@ -87,7 +88,8 @@ class Money:
 
     @property
     def is_missing(self) -> bool:
-        return self.value != self.value
+        # NaN es el valor centinela de dato ausente (Nunca se compara con ==).
+        return math.isnan(self.value)
 
     def __bool__(self) -> bool:
         return not self.is_missing

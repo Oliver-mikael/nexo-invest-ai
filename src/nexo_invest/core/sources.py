@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, ClassVar, Dict, List, Optional
 
 from nexo_invest.core.units import Money, Period, Scale
+
+if TYPE_CHECKING:  # importación diferida: core.metrics importa este módulo en tiempo de ejecución
+    from nexo_invest.core.metrics import FinancialState
 
 
 class DataType(Enum):
@@ -248,23 +251,23 @@ class ProvenanceRegistry:
                 result.append(obs)
         return result
 
-    _BALANCE_FIELDS = {
+    _BALANCE_FIELDS: ClassVar[set[str]] = {
         "total_debt", "cash_and_equivalents", "invested_capital", "total_assets",
         "total_liabilities", "total_equity", "shareholders_equity", "working_capital",
         "current_assets", "current_liabilities", "inventory", "short_term_investments",
         "long_term_debt_current", "long_term_debt_noncurrent", "short_term_borrowings",
     }
-    _CASHFLOW_FIELDS = {
+    _CASHFLOW_FIELDS: ClassVar[set[str]] = {
         "free_cash_flow", "operating_cash_flow", "capital_expenditures",
         "dividends_paid", "share_repurchases",
     }
-    _INCOME_FIELDS = {
+    _INCOME_FIELDS: ClassVar[set[str]] = {
         "revenue", "gross_profit", "operating_income", "net_income", "ebitda",
         "interest_expense", "income_tax_expense", "income_before_tax",
         "depreciation_amortization", "shares_diluted",
     }
     # Mapeo métrica -> campo de IncomeStatement cuando el nombre no coincide.
-    _INCOME_ALIASES = {"income_tax_expense": "tax_provision"}
+    _INCOME_ALIASES: ClassVar[Dict[str, str]] = {"income_tax_expense": "tax_provision"}
 
     def to_financial_state(
         self,

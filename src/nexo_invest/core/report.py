@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime, date
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from nexo_invest.core.dcf import DCFRun
 from nexo_invest.core.metrics import FinancialMetrics
+from nexo_invest.core.periods import FiscalCalendar
 from nexo_invest.core.sources import ProvenanceRegistry
 
 
@@ -161,8 +162,8 @@ class AnalysisReport:
             lines.append(f"- {s}")
         lines.append("")
         lines.append("Limitaciones:")
-        for l in self.limitations:
-            lines.append(f"- {l}")
+        for limitation in self.limitations:
+            lines.append(f"- {limitation}")
         lines.append("")
         lines.append("## 9. Conclusión")
         lines.append("")

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from nexo_invest.core.units import Frequency, Money, Period, Scale
+from nexo_invest.core.units import Frequency, Money, Period
 from nexo_invest.core.periods import (
     FiscalCalendar,
     growth_rate_strict,
     ttm_periods,
-    compute_ttm_from_quarters,
-    latest_fiscal_year_end_before,
 )
+
+if TYPE_CHECKING:  # importación diferida: core.sources importa este módulo en tiempo de ejecución
+    from nexo_invest.core.sources import ProvenanceRegistry
 
 
 @dataclass
