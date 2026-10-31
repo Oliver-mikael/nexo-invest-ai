@@ -24,6 +24,7 @@ backups/
 *.zip
 *.bundle
 *.sha256
+*.man.txt
 
 # Sistema
 .DS_Store
