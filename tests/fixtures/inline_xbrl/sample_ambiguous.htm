@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Fixture iXBRL sintético — ambigüedad</title></head>
+<body>
+<!-- Muestra sintética: el mismo concepto declarado varias veces para el mismo periodo.
+     Sirve para comprobar que la selección NO devuelve "el primero" cuando los valores
+     difieren, y que sí devuelve el valor cuando los duplicados coinciden. -->
+<div hidden>
+  <xbrli:context id="c-a">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-09-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="c-b">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-09-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+</div>
+
+<table>
+  <!-- Dos contextos consolidados distintos para el mismo periodo con valores distintos -->
+  <tr><td><ix:nonFraction name="test:AmbiguousContexts" contextRef="c-a" unitRef="usd" scale="6" format="ixt:num-dot-decimal" id="a-1">416,161</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:AmbiguousContexts" contextRef="c-b" unitRef="usd" scale="6" format="ixt:num-dot-decimal" id="a-2">415,000</ix:nonFraction></td></tr>
+
+  <!-- Dos hechos sobre el MISMO contexto con valores distintos -->
+  <tr><td><ix:nonFraction name="test:AmbiguousSameContext" contextRef="c-a" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="a-3">100</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:AmbiguousSameContext" contextRef="c-a" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="a-4">200</ix:nonFraction></td></tr>
+
+  <!-- Duplicados con el MISMO valor (distinta representación): no es ambigüedad -->
+  <tr><td><ix:nonFraction name="test:DuplicateEqual" contextRef="c-a" unitRef="usd" scale="6" format="ixt:num-dot-decimal" id="a-5">416,161</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:DuplicateEqual" contextRef="c-b" unitRef="usd" scale="6" id="a-6">416161</ix:nonFraction></td></tr>
+</table>
+</body>
+</html>

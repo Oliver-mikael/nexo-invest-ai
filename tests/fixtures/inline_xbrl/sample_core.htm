@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Fixture iXBRL sintético — Nexo Invest AI</title></head>
+<body>
+<!-- Muestra sintética pequeña para pruebas unitarias. No es un documento real de la SEC:
+     los valores, fechas y CIK son inventados para ejercitar cada caso límite. -->
+<div hidden>
+  <!-- Contexto consolidado del ejercicio pedido -->
+  <xbrli:context id="c-annual">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-09-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <!-- Mismo periodo pero con dimensión: es un hecho de segmento, no el consolidado -->
+  <xbrli:context id="c-annual-dim">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+      <xbrli:segment>
+        <xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">us-gaap:ProductMember</xbrldi:explicitMember>
+      </xbrli:segment>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-09-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <!-- Trimestre dentro del mismo ejercicio -->
+  <xbrli:context id="c-quarter">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2025-06-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <!-- Ejercicio anterior -->
+  <xbrli:context id="c-prior">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2023-10-01</xbrli:startDate>
+      <xbrli:endDate>2024-09-28</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <!-- Instantáneo de balance -->
+  <xbrli:context id="c-instant">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000000001</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2025-09-27</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+
+  <xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="mixed">
+    <xbrli:divide>
+      <xbrli:unitNumerator><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unitNumerator>
+      <xbrli:unitDenominator><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unitDenominator>
+    </xbrli:divide>
+  </xbrli:unit>
+</div>
+
+<table>
+  <!-- f-1: consolidado, scale=6, formato con coma de miles, NBSP y etiqueta anidada -->
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-annual" unitRef="usd" decimals="-6" scale="6" format="ixt:num-dot-decimal"id="f-1"><span>&#160;416,161&#160;</span></ix:nonFraction></td></tr>
+  <!-- f-2: duplicado con el MISMO valor pero sin formato (entero) e id distinto -->
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-annual" unitRef="usd" decimals="0" scale="6" id="f-2">416161</ix:nonFraction></td></tr>
+  <!-- f-3: mismo periodo pero dimensionado (segmento) -->
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-annual-dim" unitRef="usd" decimals="-6" scale="6" format="ixt:num-dot-decimal" id="f-3">307,003</ix:nonFraction></td></tr>
+  <!-- f-4: otro periodo (trimestre) -->
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-quarter" unitRef="usd" decimals="-6" scale="6" format="ixt:num-dot-decimal" id="f-4">109,158</ix:nonFraction></td></tr>
+
+  <!-- f-5..f-7: escala 0, 3 y -3 -->
+  <tr><td><ix:nonFraction name="test:ScaleZero" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="f-5">1,234</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:ScaleThree" contextRef="c-annual" unitRef="usd" scale="3" format="ixt:num-dot-decimal" id="f-6">1,234</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:ScaleNegative" contextRef="c-annual" unitRef="usd" scale="-3" format="ixt:num-dot-decimal" id="f-7">1,234</ix:nonFraction></td></tr>
+  <!-- f-8: sin atributo scale (equivale a factor 1) -->
+  <tr><td><ix:nonFraction name="test:NoScale" contextRef="c-annual" unitRef="usd" id="f-8">500</ix:nonFraction></td></tr>
+  <!-- f-9..f-10: signo negativo por atributo y por texto -->
+  <tr><td><ix:nonFraction name="test:SignNegative" contextRef="c-annual" unitRef="usd" scale="0" sign="-" format="ixt:num-dot-decimal" id="f-9">9,876</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:SignPositive" contextRef="c-annual" unitRef="usd" scale="0" sign="+" format="ixt:num-dot-decimal" id="f-10">9,876</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="test:LeadingMinus" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="f-11">-9,876</ix:nonFraction></td></tr>
+
+  <!-- f-12: hecho sin valor -->
+  <tr><td><ix:nonFraction name="test:Nil" contextRef="c-annual" unitRef="usd" xsi:nil="true" id="f-12"></ix:nonFraction></td></tr>
+  <!-- f-13: texto no numérico -->
+  <tr><td><ix:nonFraction name="test:BadText" contextRef="c-annual" unitRef="usd" id="f-13">n/a</ix:nonFraction></td></tr>
+  <!-- f-14: formato no implementado -->
+  <tr><td><ix:nonFraction name="test:UnsupportedFormat" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:fixed-zero" id="f-14">1,234</ix:nonFraction></td></tr>
+  <!-- f-15: decimal con separador europeo (formato admitido) -->
+  <tr><td><ix:nonFraction name="test:CommaDecimal" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:num-comma-decimal" id="f-15">1.234,56</ix:nonFraction></td></tr>
+  <!-- f-16: guión final negativo (numdash) -->
+  <tr><td><ix:nonFraction name="test:NumDash" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:numdash" id="f-16">9,876-</ix:nonFraction></td></tr>
+  <!-- f-17: unidad de acciones -->
+  <tr><td><ix:nonFraction name="test:SharesOnly" contextRef="c-annual" unitRef="shares" scale="0" format="ixt:num-dot-decimal" id="f-17">1,234</ix:nonFraction></td></tr>
+  <!-- f-18: contexto instantáneo -->
+  <tr><td><ix:nonFraction name="test:InstantFact" contextRef="c-instant" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="f-18">3,000</ix:nonFraction></td></tr>
+  <!-- f-19: referencia a un contexto inexistente -->
+  <tr><td><ix:nonFraction name="test:UnknownCtx" contextRef="c-missing" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="f-19">1,000</ix:nonFraction></td></tr>
+  <!-- f-20: atributo scale ilegible -->
+  <tr><td><ix:nonFraction name="test:BadScale" contextRef="c-annual" unitRef="usd" scale="abc" format="ixt:num-dot-decimal" id="f-20">1,234</ix:nonFraction></td></tr>
+  <!-- f-21: espacio ASCII intermedio (no se reinterpreta) -->
+  <tr><td><ix:nonFraction name="test:InternalSpace" contextRef="c-annual" unitRef="usd" scale="0" format="ixt:num-dot-decimal" id="f-21">416, 161</ix:nonFraction></td></tr>
+  <!-- f-22: unidad compuesta (xbrli:divide) -->
+  <tr><td><ix:nonFraction name="test:CompositeUnit" contextRef="c-annual" unitRef="mixed" scale="0" format="ixt:num-dot-decimal" id="f-22">1,234</ix:nonFraction></td></tr>
+  <!-- f-23: hecho sin ningún contenido -->
+  <tr><td><ix:nonFraction name="test:EmptyText" contextRef="c-annual" unitRef="usd" scale="0"id="f-23">&#160;&#160; </ix:nonFraction></td></tr>
+  <!-- f-24: valor de sign no soportado -->
+  <tr><td><ix:nonFraction name="test:BadSign" contextRef="c-annual" unitRef="usd" scale="0" sign="?" format="ixt:num-dot-decimal" id="f-24">1,234</ix:nonFraction></td></tr>
+</table>
+</body>
+</html>

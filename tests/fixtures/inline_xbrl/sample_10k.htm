@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Form 10-K (muestra sintética)</title></head>
+<body>
+<!-- Muestra sintética con la forma de un 10-K presentado en HTML/iXBRL.
+     NO es un documento real: valores, fechas e identificadores se usan para probar
+     la validación del documento primario sin red y sin depender del 1.5 MB de Apple. -->
+<div hidden>
+  <ix:header>
+    <ix:nonNumeric contextRef="c-1" name="dei:EntityRegistrantName" id="f-7">Apple Inc.</ix:nonNumeric>
+    <ix:nonNumeric contextRef="c-1" name="dei:EntityCentralIndexKey" id="f-56">0000320193</ix:nonNumeric>
+    <ix:nonNumeric contextRef="c-1" name="dei:DocumentType" id="f-1">10-K</ix:nonNumeric>
+    <ix:nonNumeric contextRef="c-1" name="dei:DocumentFiscalYearFocus" id="f-54">2025</ix:nonNumeric>
+    <ix:nonNumeric contextRef="c-1" name="dei:DocumentFiscalPeriodFocus" id="f-55">FY</ix:nonNumeric>
+
+  <xbrli:context id="c-1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-09-29</xbrli:startDate>
+      <xbrli:endDate>2025-09-27</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="c-2">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.sec.gov/CIK">0000320193</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2023-10-01</xbrli:startDate>
+      <xbrli:endDate>2024-09-28</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+  </ix:header>
+
+<table>
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-1" unitRef="usd" decimals="-6" scale="6" format="ixt:num-dot-decimal" id="f-78">416,161</ix:nonFraction></td></tr>
+  <tr><td><ix:nonFraction name="us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" contextRef="c-2" unitRef="usd" decimals="-6" scale="6" format="ixt:num-dot-decimal" id="f-79">391,035</ix:nonFraction></td></tr>
+</table>
+</div>
+</body>
+</html>
