@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  pruebas:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Instalar el paquete desde la copia limpia
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check src tests
+
+      - name: Importar todos los módulos del paquete
+        run: |
+          python - <<'PY'
+          import importlib
+          import pkgutil
+
+          import nexo_invest
+
+          modulos = [m.name for m in pkgutil.walk_packages(nexo_invest.__path__, "nexo_invest.")]
+          for modulo in modulos:
+              importlib.import_module(modulo)
+          print(f"{len(modulos)} módulos importados correctamente")
+          PY
+
+      - name: Pruebas
+        run: python -m pytest
+
+      - name: Verificar que la CLI responde
+        run: |
+          python -m nexo_invest.cli --version
+          nexo --version
