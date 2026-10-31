@@ -103,7 +103,7 @@ class ProviderConfig:
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "Nexo Invest AI"
-    app_version: str = "1.0.0"
+    app_version: str = "2.0.0"
     api_prefix: str = "/api/v1"
     environment: str = "development"
 
@@ -135,6 +135,11 @@ class Settings:
     sec_contact: str = ""
     sec_cache_dir: str = ""
     static_dir: str = ""
+
+    # Documentos privados de la cartera real (nunca dentro de un directorio público).
+    documents_dir: str = ""
+    max_upload_bytes: int = 10 * 1024 * 1024
+    max_import_rows: int = 2000
 
     @property
     def database_dsn(self) -> str:
@@ -268,4 +273,9 @@ def load_settings() -> Settings:
         sec_contact=_env("NEXO_SEC_CONTACT"),
         sec_cache_dir=_env("NEXO_SEC_CACHE_DIR", str(DEFAULT_PROJECT_ROOT / ".sec_cache")),
         static_dir=_env("NEXO_STATIC_DIR", str(DEFAULT_PROJECT_ROOT / "web" / "dist")),
+        documents_dir=_env(
+            "NEXO_DOCUMENTS_DIR", str(DEFAULT_PROJECT_ROOT / "var" / "documents")
+        ),
+        max_upload_bytes=_env_int("NEXO_MAX_UPLOAD_BYTES", 10 * 1024 * 1024),
+        max_import_rows=_env_int("NEXO_MAX_IMPORT_ROWS", 2000),
     )

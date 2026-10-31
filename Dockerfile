@@ -18,7 +18,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# OCR local (gratuito, sin enviar documentos a terceros). El paquete de español
+# es opcional para el binario, pero mejora las capturas de brókers hispanohablantes.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-spa \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY pyproject.toml README.md ./
 COPY src ./src
@@ -29,7 +34,7 @@ COPY scripts ./scripts
 COPY --from=web /web/dist ./web/dist
 
 RUN useradd --create-home --uid 10001 nexo \
-    && mkdir -p /app/var /app/.sec_cache /app/.price_cache \
+    && mkdir -p /app/var /app/var/documents /app/.sec_cache /app/.price_cache \
     && chown -R nexo:nexo /app
 USER nexo
 

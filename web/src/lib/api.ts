@@ -37,6 +37,27 @@ type Options = {
   signal?: AbortSignal
 }
 
+async function parseError(response: Response): Promise<ApiError> {
+  let code = "http_error"
+  let message = `Error ${response.status}`
+  let details: Record<string, unknown> = {}
+  try {
+    const payload = await response.json()
+    if (payload?.error) {
+      code = payload.error.code ?? code
+      message = payload.error.message ?? message
+      details = payload.error.details ?? {}
+    }
+  } catch {
+    /* respuesta sin JSON */
+  }
+  if (response.status === 422 && Array.isArray((details as { fields?: unknown }).fields)) {
+    const fields = (details as { fields: { field: string; message: string }[] }).fields
+    if (fields.length) message = fields.map((f) => `${f.field}: ${f.message}`).join(" · ")
+  }
+  return new ApiError(response.status, code, message, details)
+}
+
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = { Accept: "application/json" }
@@ -60,29 +81,34 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
     setToken(null)
   }
 
-  if (!response.ok) {
-    let code = "http_error"
-    let message = `Error ${response.status}`
-    let details: Record<string, unknown> = {}
-    try {
-      const payload = await response.json()
-      if (payload?.error) {
-        code = payload.error.code ?? code
-        message = payload.error.message ?? message
-        details = payload.error.details ?? {}
-      }
-    } catch {
-      /* respuesta sin JSON */
-    }
-    if (response.status === 422 && Array.isArray((details as { fields?: unknown }).fields)) {
-      const fields = (details as { fields: { field: string; message: string }[] }).fields
-      if (fields.length) message = fields.map((f) => `${f.field}: ${f.message}`).join(" · ")
-    }
-    throw new ApiError(response.status, code, message, details)
-  }
+  if (!response.ok) throw await parseError(response)
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
+  const token = getToken()
+  const headers: Record<string, string> = { Accept: "application/json" }
+  if (token) headers.Authorization = `Bearer ${token}`
+  let response: Response
+  try {
+    response = await fetch(`${BASE}${path}`, { method: "POST", headers, body })
+  } catch {
+    throw new ApiError(0, "offline", "Sin conexión: esta acción necesita red.")
+  }
+  if (response.status === 401) setToken(null)
+  if (!response.ok) throw await parseError(response)
+  return (await response.json()) as T
+}
+
+export async function apiDownload(path: string): Promise<Blob> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  const response = await fetch(`${BASE}${path}`, { headers })
+  if (!response.ok) throw await parseError(response)
+  return response.blob()
 }
 
 // -- tipos compartidos ---------------------------------------------------------
@@ -352,6 +378,330 @@ export const portfolioApi = {
       body,
     }),
   trades: (id: number) => api<{ items: { id: number; symbol: string; side: string; quantity: number; price: number; fee: number; executed_at: string; note: string }[] }>(`/portfolios/${id}/trades`),
+}
+
+// -- cartera real multimercado -------------------------------------------------
+
+export type Market = {
+  code: string
+  name: string
+  country_code: string
+  currency: string
+  timezone: string
+  status: string
+}
+
+export type Instrument = {
+  uid: string
+  symbol: string
+  name: string
+  market: string
+  market_name: string
+  country_code: string
+  currency: string
+  instrument_type: string
+  isin: string | null
+  cik: number | null
+  status: string
+}
+
+export type RealAccount = {
+  id: number
+  name: string
+  broker_name: string
+  broker_country: string
+  account_type: string
+  base_currency: string
+  cost_method: "fifo" | "average"
+  commission_scheme: Record<string, unknown>
+  allow_negative_cash: boolean
+  allow_short: boolean
+  status: string
+  positions: number
+  created_at: string | null
+}
+
+export type RealPosition = {
+  instrument_uid: string
+  symbol: string
+  name: string
+  market: string
+  country_code: string
+  instrument_type: string
+  currency: string
+  quantity: string
+  cost_local: string
+  cost_base: string
+  price: string | null
+  quote_as_of: string | null
+  quote_source: string
+  market_value_local: string | null
+  market_value_base: string | null
+  unrealized_base: string | null
+  price_effect_base: string | null
+  fx_effect_base: string | null
+  realized_base: string
+  dividends_base: string
+  weight: string | null
+}
+
+export type RealSummary = {
+  as_of: string
+  base_currency: string
+  cost_method: string
+  cash: Record<string, string>
+  cash_base: string
+  cash_complete: boolean
+  market_value_base: string
+  total_value_base: string | null
+  net_contributions_base: string
+  net_gain_base: string | null
+  net_return_pct: string | null
+  realized_base: string
+  unrealized_base: string
+  dividends_base: string
+  other_fees_base: string
+  other_taxes_base: string
+  complete: boolean
+  missing_prices: string[]
+  missing_fx: string[]
+  warnings: string[]
+  positions: RealPosition[]
+  account: {
+    id: number
+    name: string
+    broker_name: string
+    broker_country: string
+    account_type: string
+    base_currency: string
+    cost_method: string
+    status: string
+  }
+  movements: number
+  xirr_pct: string | null
+  xirr_available: boolean
+  twr_pct: string | null
+  twr_available: boolean
+  twr_reason: string
+  data_errors: string[]
+}
+
+export type RealMovement = {
+  id: number
+  movement_type: string
+  movement_date: string
+  settlement_date: string | null
+  instrument_uid: string | null
+  symbol: string | null
+  currency: string
+  quantity: string
+  price: string
+  amount: string
+  fee: string
+  tax: string
+  fx_rate: string
+  fx_date: string | null
+  fx_source: string
+  source: string
+  validation_status: string
+  transfer_group: string | null
+  transfer_cost_basis: string | null
+  document_id: number | null
+  import_batch_id: number | null
+  notes: string
+  created_at: string | null
+}
+
+export type RealOverviewGroup = {
+  currency: string
+  accounts: number
+  market_value: string
+  cash: string
+  total_value: string | null
+  net_contributions: string
+  net_gain: string | null
+  net_return_pct: string | null
+  realized: string
+  unrealized: string
+  dividends: string
+  other_fees: string
+  other_taxes: string
+  xirr_pct: string | null
+  complete: boolean
+  by_market: Record<string, string>
+  by_country: Record<string, string>
+  by_type: Record<string, string>
+  by_currency: Record<string, string>
+}
+
+export type RealOverview = {
+  as_of: string
+  accounts: {
+    id: number
+    name: string
+    broker_name: string
+    broker_country: string
+    account_type: string
+    base_currency: string
+    cost_method: string
+    status: string
+    total_value_base: string | null
+    net_contributions_base: string
+    net_gain_base: string | null
+    net_return_pct: string | null
+    xirr_pct: string | null
+    realized_base: string
+    unrealized_base: string
+    dividends_base: string
+    complete: boolean
+    positions: number
+  }[]
+  groups: RealOverviewGroup[]
+  currencies: string[]
+  note: string
+}
+
+export type ImportPreparedRow = {
+  row: number
+  raw: Record<string, string>
+  payload: Record<string, string | null> | null
+  errors: string[]
+  duplicate: boolean
+  duplicate_reason: string
+}
+
+export type ImportPreview = {
+  id: number
+  account_id: number
+  filename: string
+  status: string
+  mapping: Record<string, string>
+  total_rows: number
+  valid_rows: number
+  duplicate_rows: number
+  error_rows: number
+  ready_to_confirm: boolean
+  rows: ImportPreparedRow[]
+  rows_returned: number
+  headers: string[]
+  note: string
+}
+
+export type DocumentRecord = {
+  id: number
+  account_id: number | null
+  filename: string
+  content_type: string
+  size_bytes: number
+  sha256: string
+  status: string
+  extraction: {
+    text?: string
+    engine?: string
+    fields?: Record<string, string>
+    warnings?: string[] | string
+    review_required?: boolean
+    note?: string
+  }
+  created_at: string | null
+  updated_at: string | null
+}
+
+export const marketsApi = {
+  list: () => api<Market[]>("/markets"),
+  instruments: (q = "", market = "") =>
+    api<{ items: Instrument[]; total: number }>(
+      `/instruments?q=${encodeURIComponent(q)}&market=${encodeURIComponent(market)}&limit=60`,
+    ),
+  createInstrument: (body: {
+    symbol: string
+    name: string
+    market_code: string
+    currency: string
+    instrument_type: string
+    country_code?: string
+  }) => api<Instrument>("/instruments", { method: "POST", body }),
+  quote: (uid: string, body: { price: string; as_of: string; source: string; quality: string }) =>
+    api<{ price: string }>(`/instruments/${uid}/quotes`, { method: "POST", body }),
+  fx: (body: {
+    base_currency: string
+    quote_currency: string
+    rate: string
+    as_of: string
+    source: string
+    quality: string
+  }) => api<{ rate: string }>("/fx-rates", { method: "POST", body }),
+}
+
+export const realApi = {
+  overview: (asOf?: string) =>
+    api<RealOverview>(`/real/overview${asOf ? `?as_of=${asOf}` : ""}`),
+  accounts: () => api<{ items: RealAccount[]; total: number }>("/real/accounts"),
+  account: (id: number) => api<RealAccount>(`/real/accounts/${id}`),
+  createAccount: (body: Record<string, unknown>) =>
+    api<RealAccount>("/real/accounts", { method: "POST", body }),
+  updateAccount: (id: number, body: Record<string, unknown>) =>
+    api<RealAccount>(`/real/accounts/${id}`, { method: "PATCH", body }),
+  deleteAccount: (id: number) => api<{ ok: boolean }>(`/real/accounts/${id}`, { method: "DELETE" }),
+  summary: (id: number, asOf?: string, twr = true) =>
+    api<RealSummary>(
+      `/real/accounts/${id}/summary?twr=${twr}${asOf ? `&as_of=${asOf}` : ""}`,
+    ),
+  movements: (id: number, limit = 200) =>
+    api<{ items: RealMovement[]; total: number }>(
+      `/real/accounts/${id}/movements?limit=${limit}`,
+    ),
+  createMovement: (id: number, body: Record<string, unknown>) =>
+    api<{ movement: RealMovement }>(`/real/accounts/${id}/movements`, {
+      method: "POST",
+      body,
+    }),
+  updateMovement: (id: number, movementId: number, body: Record<string, unknown>) =>
+    api<{ movement: RealMovement }>(`/real/accounts/${id}/movements/${movementId}`, {
+      method: "PATCH",
+      body,
+    }),
+  deleteMovement: (id: number, movementId: number) =>
+    api<{ ok: boolean }>(`/real/accounts/${id}/movements/${movementId}`, {
+      method: "DELETE",
+    }),
+  previewImport: (id: number, file: File, mapping?: string, dateOrder = "dmy") => {
+    const form = new FormData()
+    form.append("file", file)
+    if (mapping) form.append("mapping", mapping)
+    form.append("date_order", dateOrder)
+    return apiUpload<ImportPreview>(`/real/accounts/${id}/imports/preview`, form)
+  },
+  confirmImport: (id: number, batchId: number, allowPartial = false) =>
+    api<{ created: number; skipped_duplicates: number; errors: { row: number; errors: string[] }[] }>(
+      `/real/accounts/${id}/imports/${batchId}/confirm`,
+      { method: "POST", body: { allow_partial: allowPartial } },
+    ),
+  discardImport: (id: number, batchId: number) =>
+    api<{ ok: boolean }>(`/real/accounts/${id}/imports/${batchId}`, { method: "DELETE" }),
+  documents: (accountId?: number) =>
+    api<{ items: DocumentRecord[]; total: number }>(
+      `/real/documents${accountId ? `?account_id=${accountId}` : ""}`,
+    ),
+  uploadDocument: (file: File, accountId?: number) => {
+    const form = new FormData()
+    form.append("file", file)
+    if (accountId) form.append("account_id", String(accountId))
+    return apiUpload<DocumentRecord>("/real/documents", form)
+  },
+  extractDocument: (id: number) =>
+    api<{ document_id: number; status: string; extraction: DocumentRecord["extraction"] }>(
+      `/real/documents/${id}/extract`,
+      { method: "POST" },
+    ),
+  confirmDocument: (id: number, accountId: number, movement: Record<string, unknown>) =>
+    api<{ document_id: number; status: string; movement: RealMovement }>(
+      `/real/documents/${id}/confirm`,
+      { method: "POST", body: { account_id: accountId, movement } },
+    ),
+  deleteDocument: (id: number) =>
+    api<{ ok: boolean }>(`/real/documents/${id}`, { method: "DELETE" }),
+  downloadDocument: (id: number) => apiDownload(`/real/documents/${id}/file`),
 }
 
 export const systemApi = {

@@ -12,6 +12,7 @@ import { ResearchDetail } from "./pages/ResearchDetail"
 import { Reports } from "./pages/Reports"
 import { ReportDetail } from "./pages/ReportDetail"
 import { Portfolio } from "./pages/Portfolio"
+import { RealPortfolio } from "./pages/RealPortfolio"
 import { Settings } from "./pages/Settings"
 
 function ScrollToTop() {
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/investigacion/:id" element={<ResearchDetail />} />
             <Route path="/informes" element={<Reports />} />
             <Route path="/informes/:id" element={<ReportDetail />} />
+            <Route path="/cartera-real" element={<RealPortfolio />} />
             <Route path="/cartera" element={<Portfolio />} />
             <Route path="/ajustes" element={<Settings />} />
             <Route path="*" element={<NotFound />} />

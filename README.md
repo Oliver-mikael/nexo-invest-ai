@@ -9,7 +9,7 @@ para evaluar una empresa.
 
 ## Estado actual
 
-Versión: 1.0.0 (plataforma) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
+Versión: 2.0.0 (plataforma multimercado) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
 
 Lo que hoy funciona de verdad:
 
@@ -46,6 +46,35 @@ Lo que hoy funciona de verdad:
 Lo que **no** está: fuente primaria independiente de la propia empresa (Nasdaq
 repite el mismo documento presentado), precios verificados de mercados oficiales,
 comparables reales, señales tácticas y recomendaciones de inversión.
+
+## Cartera real multimercado (v2.0)
+
+La plataforma incorpora un registro contable de inversiones **reales** separado de la
+cartera simulada. No ejecuta órdenes ni guarda credenciales de brókers: es una herramienta
+de seguimiento, registro y análisis.
+
+- **Identidad multimercado:** mercados con código MIC, instrumentos con identificador
+  interno estable (`uid`), símbolo, bolsa, país, moneda, tipo e ISIN. El ticker no es un
+  identificador global.
+- **Cuentas reales** con bróker, país, moneda base, comisión y método contable (FIFO o coste
+  medio). Varias cuentas por usuario y consolidado por moneda base, sin sumar divisas a
+  ciegas.
+- **Movimientos:** depósitos, retiros, compras, ventas, dividendos, comisiones, impuestos,
+  ajustes, splits y traspasos. Cada uno guarda divisa, tipo de cambio histórico, fuente,
+  fecha y estado de validación. Los importes se calculan con `Decimal`.
+- **Rentabilidad:** FIFO y coste medio, ganancias realizadas y no realizadas, dividendos
+  netos, comisiones, impuestos, XIRR y TWR cuando hay datos suficientes. El efecto
+  cambiario se separa del efecto precio; una posición sin cotización queda *sin valorar*.
+- **Registro:** formulario manual validado, importación CSV/XLSX con mapeo, vista previa,
+  duplicados y confirmación, y documentos privados con OCR local (Tesseract) y revisión
+  humana obligatoria.
+- **Trazabilidad:** cotizaciones y tipos de cambio con fuente, fecha del dato y calidad
+  (tiempo real, retrasado, cierre, histórico, estimado). Las cotizaciones manuales son
+  privadas: no pueden alterar la cartera de otro usuario.
+
+Sigue **sin** haber ejecución de órdenes, conexión con brókers, proveedor automático de
+noticias/eventos, APK Android ni garantía de que un precio sea el tape oficial. El OCR
+requiere el binario `tesseract-ocr` en el servidor. Ver [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md).
 
 ## Plataforma web, móvil y multi-IA (v1.0)
 
@@ -97,7 +126,7 @@ docker compose up -d --build
 ### Pruebas
 
 ```bash
-pytest              # motor (397) + plataforma (37), sin red
+pytest              # 461 pruebas recolectadas: 460 aprobadas, 1 omitida (red), sin red
 ruff check src app tests
 cd web && npm run typecheck && npm run build
 ```
@@ -109,9 +138,10 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"      # o: python3 -m pip install -e ".[dev]"
 ```
 
-El proyecto **no tiene dependencias de ejecución**: solo la biblioteca estándar de Python
-(3.10 o superior). El extra `[dev]` añade `pytest` y `ruff`. Verificado el 2026-10-31 en un
-entorno virtual aislado a partir de una copia limpia del repositorio.
+El motor financiero sigue sin dependencias externas. El backend necesita el extra `api`
+(FastAPI, SQLAlchemy, Alembic, OCR local e importación XLSX) y el extra `dev` añade además
+`pytest` y `ruff`. Para producción usa `requirements.txt`, que incluye el driver de
+PostgreSQL. En el contenedor se instala `tesseract-ocr` con el paquete de español.
 
 ## Integración continua
 

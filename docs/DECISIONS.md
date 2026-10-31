@@ -373,3 +373,117 @@ Decisiones implementadas en este ciclo (Ciclo 3, 0.3.0):
 Ciclo 3 (0.3.0): decisiones 35 a 42. 303 pruebas aprobadas, 1 omitida. Informes
 `reports/verify-aapl-2026-10-28.md` y `reports/backtest-aapl-2026-10-28.md` reproducidos
 byte a byte salvo la línea de fecha.
+
+## Ciclo 6 — evolución multimercado (2.0)
+
+### 43. `Decimal` y `Numeric` para todo importe contable
+
+Motivo: `float` no representa de forma exacta céntimos ni tipos de cambio y produce
+diferencias que el usuario no puede explicar.
+
+Consecuencia: la API acepta cadenas decimales, Pydantic las convierte a `Decimal`, el motor
+opera con `Decimal` y la base usa `Numeric(28,10)` / `Numeric(24,10)`. SQLite conserva la
+afinidad numérica; PostgreSQL conserva precisión exacta. Se documenta que producción debe
+usar PostgreSQL.
+
+### 44. Identidad de instrumento independiente del ticker
+
+Motivo: un mismo símbolo puede existir en varios mercados y un ticker no identifica de
+forma global a un emisor.
+
+Consecuencia: cada instrumento tiene un `uid` estable; la unicidad real es
+`(market_id, symbol)` y se admite ISIN. La API y la cartera usan `uid`, no el ticker.
+
+### 45. La cartera real no comparte tablas con la simulada
+
+Motivo: mezclar operaciones ficticias y reales haría imposible explicar el capital, los
+impuestos y la rentabilidad.
+
+Consecuencia: `real_accounts`/`real_movements` son independientes de
+`portfolios`/`positions`/`trades`. Las pruebas comprueban que crear movimientos reales deja
+la cartera simulada vacía.
+
+### 46. Efectivo en moneda base y tipo de cambio histórico por movimiento
+
+Motivo: recalcular una operación antigua con el cambio actual inventa resultados.
+
+Consecuencia: cada movimiento guarda `currency`, `fx_rate`, `fx_date` y `fx_source`; el
+efectivo se lleva en la moneda base de la cuenta usando ese cambio. El consolidado agrupa
+por divisa y nunca suma BOB + USD sin un tipo explícito. Cambiar la moneda base de una
+cuenta con movimientos se rechaza.
+
+### 47. FIFO y coste medio calculados en paralelo
+
+Motivo: la elección del método cambia el beneficio realizado y debe ser explícita, no un
+detalle oculto.
+
+Consecuencia: el motor mantiene lotes FIFO y una bolsa de coste medio; la cuenta elige el
+método principal y las pruebas numéricas fijan ambos resultados. Las comisiones de compra
+se capitalizan; las de venta reducen el importe neto.
+
+### 48. Traspaso de valores a coste, no a precio de mercado
+
+Motivo: un traspaso interno no es una venta ni genera plusvalía; usar un importe declarado
+distinto del coste fabricaría ganancias o pérdidas.
+
+Consecuencia: la salida usa el coste realmente retirado del libro; la entrada usa el coste
+declarado por el usuario. Un traspaso de efectivo se compensa en el consolidado de la misma
+divisa. Los traspasos entre divisas distintas no se consolidan automáticamente.
+
+### 49. Cotizaciones manuales privadas; datos de proveedor globales
+
+Motivo: una cotización introducida por un usuario no puede alterar la valoración de la
+cartera de otra persona. Es un problema de integridad y de aislamiento.
+
+Consecuencia: `quotes` y `fx_rates` tienen `user_id`; nulo significa dato global de
+proveedor. Las consultas ven globales + propias. En empate de fecha y calidad, la corrección
+del usuario prevalece solo para él.
+
+### 50. OCR local y confirmación humana obligatoria
+
+Motivo: enviar documentos financieros a un tercero tiene implicaciones de privacidad y
+coste; además, un OCR puede confundir dígitos.
+
+Consecuencia: se usa `pypdf`/Tesseract en el servidor, sin servicio de pago. La extracción
+devuelve una propuesta con `review_required: true`; el movimiento solo se crea en un
+endpoint de confirmación distinto, con los campos corregidos y vínculo al documento. Si
+Tesseract no está instalado, la API responde 503 y no simula.
+
+### 51. Importación en dos fases y duplicados por huella
+
+Motivo: una importación errónea no debe escribir movimientos ni duplicar el mismo hecho.
+
+Consecuencia: `preview` normaliza y valida sin escribir; `confirm` es explícito. La huella
+usa `external_id` si existe o los campos económicos. Las filas inválidas bloquean la
+confirmación salvo que el usuario pida una importación parcial.
+
+### 52. Sin datos no se publica una cifra
+
+Motivo: una posición sin precio o un TWR sin valoraciones completas no son cero.
+
+Consecuencia: la valoración devuelve `complete: false`, `total_value: null` y la lista de
+datos faltantes. XIRR/TWR se declaran no disponibles con motivo. No se usa el coste como
+precio de mercado.
+
+### 53. Documentos privados con validación de firma
+
+Motivo: el tipo MIME declarado por el cliente no demuestra el contenido y el directorio
+estático no es un lugar seguro.
+
+Consecuencia: se comprueba la firma real (PDF/JPEG/PNG/WebP), se limita el tamaño, se usa
+un `storage_key` aleatorio fuera de `web/dist`, la descarga exige token y un documento
+vinculado a un movimiento no se puede borrar.
+
+### 54. Sin credenciales de bróker y sin órdenes
+
+Motivo: la autorización de esta fase es seguimiento y registro; custodiar credenciales o
+enviar órdenes añade riesgo legal y operativo no autorizado.
+
+Consecuencia: el bróker es texto descriptivo, no hay campos de usuario/clave ni endpoints
+de ejecución. La UI declara que no se envían órdenes.
+
+Ciclo 6 (2.0): 461 pruebas recolectadas, 460 aprobadas, 1 omitida. La fase 2 (cartera real
+y contabilidad) y la fase 4 (registro manual, importación y OCR con confirmación) están
+implementadas y probadas; las fases 5 a 10 (proveedores automáticos, workers, alertas,
+tesis, backtesting multimercado, Android y producción) siguen pendientes y no se presentan
+como terminadas.

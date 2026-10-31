@@ -279,6 +279,53 @@ Próximas tareas:
 
 - Copia limpia instalada en `venv` y 391 pruebas ejecutadas sin depender del workspace.
 
+## Ciclo 6 — Nexo Invest AI 2.0 (rama `feat/multi-market-real-money`)
+
+Base: `f5b87c4` (PR #2, sin fusionar). `main` no se modifica.
+
+### Fase 1 — Consolidación: COMPLETADA
+
+- Auditoría de rama, PR #2, CI, migraciones y suite.
+- Árbol de trabajo saneado: se restauraron seis archivos que habían vuelto al contenido de
+  `main` por un artefacto de sincronización (CI, `pyproject.toml`, `.gitignore`, README,
+  CHANGELOG y SESSION_STATE). El stash previo se conservó sin aplicar.
+
+### Fase 2 — Cartera real multimercado: COMPLETADA
+
+- Mercados MIC, instrumentos con `uid`, ISIN opcional, cotizaciones y tipos de cambio con
+  procedencia y visibilidad por usuario.
+- Cuentas reales múltiples, separadas de la cartera simulada; movimientos de depósito,
+  retiro, compra, venta, dividendo, comisión, impuesto, ajuste, split y traspaso.
+- Migración `1a0119241c07` y pruebas de aislamiento.
+
+### Fase 3 — Rentabilidad y divisas: COMPLETADA
+
+- FIFO y coste medio, realizado/no realizado, dividendos netos, comisiones, impuestos,
+  XIRR, TWR, atribución precio/divisa, consolidado por moneda base.
+- Cálculos con `Decimal` y ejemplos numéricos verificables.
+
+### Fase 4 — Registro: COMPLETADA (OCR condicionado al entorno)
+
+- Formulario manual validado contra el libro completo.
+- Importación CSV/XLSX con mapeo, vista previa, duplicados y confirmación total/parcial.
+- Documentos privados, validación de firma, OCR local y confirmación humana.
+- Limitación: Tesseract no está instalado en este workspace; el contenedor lo incluye.
+
+### Fases 5 a 10 — Pendientes
+
+5. **Datos:** proveedores automáticos de precios, fundamentales, dividendos, noticias,
+   eventos, calendarios y divisas; caché, límites, reintentos y licencias.
+6. **Automatización:** workers independientes, cola persistente (Redis/RQ, Celery o
+   Dramatiq), scheduler, reintentos, alertas y notificaciones PWA/Android.
+7. **Inteligencia:** oportunidades por horizonte, Risk Analyst, seguimiento de tesis con
+   versiones e informes comparables.
+8. **Backtesting:** multi-activo, divisas, liquidez, benchmark, walk-forward y corrección
+   por comparaciones múltiples.
+9. **Aplicación:** secciones Mercados, Watchlist, Oportunidades, Alertas, Tesis; Capacitor
+   con cámara, archivos y notificaciones; APK probado en dispositivo/emulador.
+10. **Producción:** backups verificados, monitorización, secretos, revisión legal/tributaria
+    de Bolivia y costes.
+
 ## Prioridades inmediatas
 
 - **Fuente primaria realmente independiente** (documento original en HTML de la SEC, otro

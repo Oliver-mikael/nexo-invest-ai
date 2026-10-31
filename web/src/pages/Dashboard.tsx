@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { systemApi } from "../lib/api"
+import { realApi, systemApi } from "../lib/api"
 import { useAsync } from "../lib/useAsync"
 import { Badge, Card, ErrorNotice, Notice, Progress, SectionHeader, Skeleton, Stat } from "../components/ui"
-import { money, relative, statusLabel } from "../lib/format"
+import { money, moneyString, pctRaw, relative, statusLabel } from "../lib/format"
 import { useAuth } from "../lib/auth"
 
 export function Dashboard() {
@@ -11,6 +11,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const [ticker, setTicker] = useState("")
   const { data, loading, error, reload } = useAsync(() => systemApi.dashboard(), [])
+  const real = useAsync(() => realApi.overview(), [])
 
   return (
     <div className="space-y-6">
@@ -48,6 +49,68 @@ export function Dashboard() {
       </div>
 
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
+
+      <Card>
+        <SectionHeader
+          title="Cartera real"
+          subtitle="Capital aportado, valor actual, resultado y distribución por mercado y divisa. Cada cifra se puede desglosar por cuenta."
+          action={
+            <Link to="/cartera-real" className="btn-ghost text-xs no-underline">
+              Abrir cartera real
+            </Link>
+          }
+        />
+        {real.loading ? (
+          <Skeleton rows={2} />
+        ) : real.error ? (
+          <ErrorNotice message={real.error} onRetry={real.reload} />
+        ) : real.data && real.data.accounts.length ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              {real.data.groups.map((group) => (
+                <div key={group.currency} className="rounded-lg border border-ink-900/10 bg-white/60 p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">
+                      {group.currency} · {group.accounts} cuenta(s)
+                    </p>
+                    <span className={`font-mono text-xs ${Number(group.net_gain ?? 0) >= 0 ? "text-moss-600" : "text-rust-600"}`}>
+                      {group.net_gain ? moneyString(group.net_gain, group.currency) : "sin valorar"}
+                    </span>
+                  </div>
+                  <p className="stat-value mt-1">
+                    {group.total_value ? moneyString(group.total_value, group.currency) : "—"}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink-500">
+                    <span>Aportado {moneyString(group.net_contributions, group.currency)}</span>
+                    <span>XIRR {group.xirr_pct ? pctRaw(group.xirr_pct) : "—"}</span>
+                    <span>Realizado {moneyString(group.realized, group.currency)}</span>
+                    <span>No realizado {moneyString(group.unrealized, group.currency)}</span>
+                    <span>Dividendos {moneyString(group.dividends, group.currency)}</span>
+                    <span>Costes {moneyString(Number(group.other_fees) + Number(group.other_taxes), group.currency)}</span>
+                  </div>
+                  {Object.keys(group.by_market).length ? (
+                    <p className="mt-2 truncate text-[11px] text-ink-300">
+                      {Object.entries(group.by_market)
+                        .map(([market, value]) => `${market} ${moneyString(value, group.currency)}`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                  {!group.complete ? (
+                    <p className="mt-1 text-[11px] text-amber-600">Faltan precios o tipos de cambio.</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-ink-300">{real.data.note}</p>
+          </div>
+        ) : (
+          <Notice tone="info">
+            Aún no hay cuentas reales. <Link to="/cartera-real">Crea la primera</Link> para registrar
+            depósitos, compras, dividendos y ver la rentabilidad neta. La cartera simulada sigue en su
+            propio espacio.
+          </Notice>
+        )}
+      </Card>
 
       {loading || !data ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

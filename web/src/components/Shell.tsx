@@ -7,9 +7,14 @@ const NAV = [
   { to: "/empresas", label: "Empresas", icon: "▤" },
   { to: "/investigacion", label: "Investigación", icon: "◎" },
   { to: "/informes", label: "Informes", icon: "❐" },
-  { to: "/cartera", label: "Cartera", icon: "◈" },
+  { to: "/cartera-real", label: "Cartera real", icon: "▦" },
+  { to: "/cartera", label: "Simulada", icon: "◈" },
   { to: "/ajustes", label: "Ajustes", icon: "⚙" },
 ]
+
+const MOBILE_NAV = NAV.filter((item) =>
+  ["/panel", "/empresas", "/investigacion", "/cartera-real", "/cartera"].includes(item.to),
+)
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void> }
 
@@ -165,8 +170,8 @@ export function Shell() {
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-900/10 bg-paper/95 backdrop-blur md:hidden">
-        <div className="grid grid-cols-6">
-          {NAV.map((item) => (
+        <div className="grid grid-cols-5">
+          {MOBILE_NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

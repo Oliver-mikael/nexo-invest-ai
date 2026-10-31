@@ -17,10 +17,12 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -271,3 +273,243 @@ class AuditEvent(Base):
     meta: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     ip: Mapped[str] = mapped_column(String(64), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+# ---------------------------------------------------------------------------
+# Mercados, instrumentos y datos de referencia (Fase 2)
+# ---------------------------------------------------------------------------
+
+MONEY = Numeric(28, 10)
+QUANTITY = Numeric(28, 10)
+PRICE = Numeric(24, 10)
+RATE = Numeric(24, 10)
+
+
+class Market(Base):
+    """Mercado o centro de negociación identificado por su código MIC.
+
+    El ticker no identifica un instrumento de forma global: AAPL puede existir en
+    varios mercados y un mismo símbolo puede pertenecer a emisores distintos. La
+    identidad estable es `Instrument.uid`.
+    """
+
+    __tablename__ = "markets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(16), unique=True, index=True)  # MIC
+    name: Mapped[str] = mapped_column(String(160))
+    country_code: Mapped[str] = mapped_column(String(2), index=True)
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Instrument(Base):
+    __tablename__ = "instruments"
+    __table_args__ = (
+        UniqueConstraint("market_id", "symbol", name="uq_instrument_market_symbol"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Identificador interno estable e independiente del ticker; se expone en la API.
+    uid: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(255), default="")
+    market_id: Mapped[int] = mapped_column(
+        ForeignKey("markets.id", ondelete="RESTRICT"), index=True
+    )
+    country_code: Mapped[str] = mapped_column(String(2), default="")
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    instrument_type: Mapped[str] = mapped_column(String(24), default="stock")
+    isin: Mapped[Optional[str]] = mapped_column(String(12), nullable=True, unique=True)
+    cik: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class Quote(Base):
+    """Cotización con procedencia explícita; nunca se presenta como tiempo real sin serlo.
+
+    `user_id` nulo identifica datos de un proveedor (globales). Una cotización
+    introducida por un usuario es privada: no puede alterar la valoración de la
+    cartera de otra persona.
+    """
+
+    __tablename__ = "quotes"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "instrument_id",
+            "as_of",
+            "source",
+            name="uq_quote_user_instrument_day_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    price: Mapped[Any] = mapped_column(PRICE)
+    currency: Mapped[str] = mapped_column(String(3))
+    as_of: Mapped[Any] = mapped_column(Date, index=True)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    source: Mapped[str] = mapped_column(String(64))
+    quality: Mapped[str] = mapped_column(String(16), default="close")
+
+
+class FxRate(Base):
+    """Tipo de cambio histórico identificado por fuente y fecha.
+
+    `rate` son unidades de `quote_currency` por una unidad de `base_currency`.
+    """
+
+    __tablename__ = "fx_rates"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "base_currency",
+            "quote_currency",
+            "as_of",
+            "source",
+            name="uq_fx_user_pair_day_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    base_currency: Mapped[str] = mapped_column(String(3), index=True)
+    quote_currency: Mapped[str] = mapped_column(String(3), index=True)
+    rate: Mapped[Any] = mapped_column(RATE)
+    as_of: Mapped[Any] = mapped_column(Date, index=True)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    source: Mapped[str] = mapped_column(String(64))
+    quality: Mapped[str] = mapped_column(String(16), default="close")
+
+
+# ---------------------------------------------------------------------------
+# Cartera real (Fase 2 y 3). Nunca comparte tablas con la cartera simulada.
+# ---------------------------------------------------------------------------
+
+
+class RealAccount(Base):
+    __tablename__ = "real_accounts"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_real_account_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    broker_name: Mapped[str] = mapped_column(String(120), default="")
+    broker_country: Mapped[str] = mapped_column(String(2), default="")
+    account_type: Mapped[str] = mapped_column(String(24), default="brokerage")
+    base_currency: Mapped[str] = mapped_column(String(3), default="USD")
+    cost_method: Mapped[str] = mapped_column(String(8), default="fifo")  # fifo | average
+    commission_scheme: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    allow_negative_cash: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_short: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RealMovement(Base):
+    """Movimiento confirmado de una cuenta real.
+
+    Importes y cantidades usan `Numeric` y se tratan como `Decimal` en el motor.
+    `fx_rate` es el tipo de cambio histórico aplicado (unidades de la moneda base
+    de la cuenta por una unidad de `currency`); nunca se recalcula al valorar.
+    """
+
+    __tablename__ = "real_movements"
+    __table_args__ = (
+        UniqueConstraint("account_id", "dedupe_key", name="uq_real_movement_dedupe"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("real_accounts.id", ondelete="CASCADE"), index=True
+    )
+    instrument_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instruments.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    movement_type: Mapped[str] = mapped_column(String(24), index=True)
+    movement_date: Mapped[Any] = mapped_column(Date, index=True)
+    settlement_date: Mapped[Optional[Any]] = mapped_column(Date, nullable=True)
+    quantity: Mapped[Any] = mapped_column(QUANTITY, default=0)
+    price: Mapped[Any] = mapped_column(PRICE, default=0)
+    amount: Mapped[Any] = mapped_column(MONEY, default=0)
+    fee: Mapped[Any] = mapped_column(MONEY, default=0)
+    tax: Mapped[Any] = mapped_column(MONEY, default=0)
+    currency: Mapped[str] = mapped_column(String(3))
+    fx_rate: Mapped[Any] = mapped_column(RATE, default=1)
+    fx_date: Mapped[Optional[Any]] = mapped_column(Date, nullable=True)
+    fx_source: Mapped[str] = mapped_column(String(64), default="")
+    source: Mapped[str] = mapped_column(String(16), default="manual")  # manual|import|ocr
+    validation_status: Mapped[str] = mapped_column(String(16), default="confirmed")
+    dedupe_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    transfer_group: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    transfer_cost_basis: Mapped[Optional[Any]] = mapped_column(MONEY, nullable=True)
+    document_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
+    import_batch_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("import_batches.id", ondelete="SET NULL"), nullable=True
+    )
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ImportBatch(Base):
+    """Carga preparada y pendiente de confirmación humana."""
+
+    __tablename__ = "import_batches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("real_accounts.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    content_sha256: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(16), default="preview", index=True)
+    mapping: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    rows: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    total_rows: Mapped[int] = mapped_column(Integer, default=0)
+    valid_rows: Mapped[int] = mapped_column(Integer, default=0)
+    duplicate_rows: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Document(Base):
+    """Documento privado del usuario (extracto, captura o factura)."""
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("real_accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    content_type: Mapped[str] = mapped_column(String(120), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    storage_key: Mapped[str] = mapped_column(String(255), unique=True)
+    status: Mapped[str] = mapped_column(String(16), default="uploaded")
+    extraction: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

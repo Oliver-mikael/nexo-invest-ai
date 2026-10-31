@@ -29,6 +29,7 @@ from app.errors import install_error_handlers
 from app.services.engine import EngineService
 from app.services.jobs import JobRunner
 from app.services.prices import PriceProvider, default_provider
+from app.services.reference import seed_markets
 
 logger = logging.getLogger("nexo.app")
 
@@ -58,6 +59,7 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         configure(resolved)
         init_db()
+        seed_markets()
         app.state.settings = resolved
         app.state.engine = engine or EngineService(resolved)
         app.state.orchestrator = orchestrator or AIOrchestrator(resolved)

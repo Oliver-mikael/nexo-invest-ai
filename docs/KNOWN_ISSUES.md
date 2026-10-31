@@ -1,9 +1,50 @@
 # KNOWN_ISSUES — Nexo Invest AI
 
-Actualizado: 2026-10-31 · Versión: 0.3.0
+Actualizado: 2026-10-31 · Plataforma 2.0 · Motor 0.3.0
 
 Este documento recoge las limitaciones **reales y comprobadas** del sistema, no las que
 existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
+
+## Cartera real multimercado (2.0)
+
+- **No hay proveedor automático de precios, fundamentales, dividendos, noticias ni
+  calendarios.** La valoración usa cotizaciones registradas con fuente y fecha (manuales o
+  importadas). No se presenta un precio retrasado como tiempo real; cada dato lleva
+  `source`, `as_of` y `quality`.
+- **El OCR no está verificado de extremo a extremo en este workspace** porque el binario
+  `tesseract-ocr` no está instalado. La lógica de extracción, el flujo de revisión y la
+  confirmación están implementados y probados con un extractor simulado; el contenedor
+  instala Tesseract. Si falta, la API devuelve 503 y no finge una extracción.
+- **No hay APK Android.** La PWA es instalable, pero Capacitor no se ha generado ni probado
+  en dispositivo/emulador; no se declara un APK inexistente.
+- **No hay workers independientes, scheduler ni alertas.** La cartera real no depende de la
+  cola de investigación, pero las actualizaciones automáticas, notificaciones PWA/Android y
+  el centro de alertas siguen pendientes. La cola actual es un `ThreadPoolExecutor` en
+  proceso y no sirve para varias réplicas.
+- **No hay ejecución de órdenes ni conexión con brókers.** El nombre del bróker es texto; no
+  se guardan credenciales. La plataforma es de seguimiento y registro.
+- **TWR depende del histórico de precios/divisas.** Si falta una valoración en una fecha de
+  aporte, se devuelve `twr_available: false` con el motivo; no se interpola ni se usa el
+  coste como mercado. XIRR necesita al menos un flujo de cada signo.
+- **Traspasos entre divisas distintas** no se compensan automáticamente en el consolidado:
+  cada cuenta los ve como flujo externo en su moneda base. Los traspasos de la misma divisa
+  sí se compensan.
+- **La consolidación no suma monedas distintas.** El overview agrupa por divisa base; no hay
+  un total único multi-divisa sin un tipo de cambio explícito y una fecha de conversión.
+- **SQLite no es una base contable exacta a nivel de almacenamiento.** Los cálculos usan
+  `Decimal`, pero SQLite guarda con afinidad numérica. Para producción contable, PostgreSQL
+  con `Numeric` es el entorno previsto.
+- **El tipo de cambio histórico lo aporta el usuario o el importador.** No se valida contra
+  un proveedor externo ni se corrige retroactivamente. Si la fuente es incorrecta, el
+  resultado cambia; queda registrada la fuente.
+- **La importación no guarda el archivo original**, solo el hash y las filas normalizadas de
+  la previsualización. Para auditoría documental de importaciones hará falta una fase
+  posterior.
+- **No hay pruebas de navegador.** La interfaz se verifica con TypeScript y build, no con
+  Playwright ni capturas automatizadas.
+
+Las limitaciones históricas del motor financiero (procedencia, TTM, valoración, backtesting)
+se mantienen y se listan a continuación.
 
 ## Limitaciones del entorno
 

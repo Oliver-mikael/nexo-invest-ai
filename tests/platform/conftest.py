@@ -52,6 +52,7 @@ def settings(tmp_path: Path) -> Settings:
         sec_contact="test@nexo.invalid",
         sec_cache_dir=str(tmp_path / "sec-cache"),
         static_dir=str(tmp_path / "no-static"),
+        documents_dir=str(tmp_path / "documents"),
         allow_registration=True,
         providers=[
             ProviderConfig(

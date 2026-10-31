@@ -1,5 +1,73 @@
 # CHANGELOG — Nexo Invest AI
 
+## 2.0.0 — 2026-10-31 (Ciclo 6: cartera real multimercado)
+
+Evolución sobre la plataforma 1.0 sin reescribir el motor financiero ni la cartera simulada.
+La rama es `feat/multi-market-real-money`; `main` y el PR #2 no se han tocado.
+
+### Modelo multimercado
+
+- Mercados con código MIC y moneda (`markets`); instrumentos con `uid` estable, símbolo,
+  mercado, país, divisa, tipo, ISIN y CIK opcional (`instruments`). La unicidad es
+  `(mercado, símbolo)`, no el ticker global.
+- Cotizaciones y tipos de cambio con fuente, fecha del dato, fecha de consulta y calidad
+  (`realtime`, `delayed`, `close`, `historical`, `estimated`).
+- Cotizaciones/tipos manuales privados por usuario; los datos de proveedor quedan globales
+  con `user_id` nulo.
+- Mercados de referencia sembrados de forma idempotente al arrancar.
+
+### Cartera real y contabilidad
+
+- `real_accounts` y `real_movements`, independientes de `portfolios`/`trades`.
+- Depósitos, retiros, compras, ventas, dividendos, comisiones, impuestos, ajustes, splits y
+  traspasos; cada movimiento guarda divisa, tipo de cambio histórico, fuente, fecha y estado.
+- Motor `app/services/accounting.py` con `Decimal`: FIFO y coste medio en paralelo,
+  realizado/no realizado, dividendos netos, comisiones, impuestos, atribución precio/divisa,
+  XIRR, TWR, valoración con datos faltantes explícitos y traspasos a coste.
+- Efectivo en moneda base convertido con el cambio histórico de cada movimiento; nunca se
+  recalcula una operación antigua con el cambio actual.
+- Consolidado por moneda base con distribución por mercado, país, tipo y divisa. No se suman
+  divisas distintas sin tipo explícito.
+
+### Registro
+
+- Formulario manual validado contra el libro completo (sin sobregiros, ventas en corto no
+  autorizadas ni duplicados).
+- Importación CSV/TXT/XLSX con detección de columnas, mapeo manual, orden de fecha explícito,
+  vista previa, detección de duplicados y confirmación total o parcial. La vista previa no
+  escribe movimientos.
+- Documentos privados con validación de firma real, límite de tamaño, SHA-256 y descarga
+  autenticada.
+- OCR local (`pypdf`/Tesseract) que devuelve campos propuestos con `review_required`; el
+  movimiento solo se crea en una confirmación humana separada. Sin Tesseract, 503 explícito.
+
+### API, interfaz y despliegue
+
+- Nuevos routers `/markets`, `/instruments`, `/fx-rates`, `/real/accounts`, `/real/overview`,
+  `/real/performance`, importaciones y documentos; errores uniformes y límites por ruta.
+- PWA: página `/cartera-real` con resumen, posiciones, movimientos, importación y documentos;
+  dashboard con consolidado por divisa; navegación actualizada.
+- Dockerfile instala `tesseract-ocr` y `tesseract-ocr-spa`; compose añade volumen privado de
+  documentos. `env.example` documenta las variables nuevas.
+- Migración `1a0119241c07` verificada con upgrade/check/downgrade/upgrade.
+
+### Pruebas
+
+- **461 recolectadas: 460 aprobadas, 1 omitida (red).** Ruff limpio. TypeScript y build de la
+  PWA correctos (58 módulos).
+- Nuevas: motor contable (10), API real/aislamiento/importación/documentos (11), importación y
+  OCR (5).
+
+### Limitaciones declaradas
+
+- Sin proveedor automático de precios, fundamentales, noticias, dividendos, calendarios ni
+  divisas; sin workers, scheduler ni alertas.
+- OCR real no verificado en este workspace por falta del binario; el contenedor lo incluye.
+- Sin APK/Capacitor probado; sin pruebas de navegador; SQLite no es contabilidad exacta de
+  almacenamiento (producción: PostgreSQL).
+- Sin ejecución de órdenes ni credenciales de brókers. Sin investigación legal/tributaria de
+  Bolivia.
+
 ## 1.0.0 — 2026-10-31 (Ciclo 5: plataforma web, móvil y multi-IA)
 
 Transformación del motor verificable en un producto ejecutable, sin reescribir el motor

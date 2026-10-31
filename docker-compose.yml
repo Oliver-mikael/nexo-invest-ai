@@ -39,11 +39,15 @@ services:
       NEXO_AI_GEMINI_KEY: ${NEXO_AI_GEMINI_KEY:-}
       NEXO_MONTHLY_BUDGET_USD: ${NEXO_MONTHLY_BUDGET_USD:-10}
       NEXO_CORS_ORIGINS: ${NEXO_CORS_ORIGINS:-*}
+      NEXO_DOCUMENTS_DIR: /app/var/documents
+      NEXO_MAX_UPLOAD_BYTES: ${NEXO_MAX_UPLOAD_BYTES:-10485760}
     ports:
       - "8000:8000"
     volumes:
       - nexo-cache:/app/.sec_cache
+      - nexo-documents:/app/var/documents
 
 volumes:
   nexo-db:
   nexo-cache:
+  nexo-documents:

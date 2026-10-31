@@ -20,6 +20,19 @@ export function compact(value: number | null | undefined): string {
   return value.toLocaleString("es-ES", { maximumFractionDigits: 2 })
 }
 
+export function moneyString(value: string | number | null | undefined, currency = "USD"): string {
+  if (value === null || value === undefined || value === "") return "—"
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? money(parsed, currency) : "—"
+}
+
+export function pctRaw(value: string | number | null | undefined, digits = 2): string {
+  if (value === null || value === undefined || value === "") return "—"
+  const parsed = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(parsed)) return "—"
+  return `${parsed.toLocaleString("es-ES", { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`
+}
+
 export function pct(value: number | null | undefined, digits = 1): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—"
   return `${(value * 100).toFixed(digits)} %`
