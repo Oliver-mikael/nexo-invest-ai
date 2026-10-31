@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-from nexo_invest.core.dcf import Scenario, build_valuation
+from nexo_invest.core.dcf import Scenario, build_valuation, sensitivity_table
 from nexo_invest.core.metrics import FinancialMetrics
 from nexo_invest.core.periods import FiscalCalendar
 from nexo_invest.core.sources import Observation, ProvenanceLevel
@@ -738,6 +738,72 @@ class RealCompanyReport:
             "El escenario base **no es una predicción**. Es una de tres combinaciones "
             "explícitas de supuestos, y la horquilla entre escenarios mide la sensibilidad "
             "a esos supuestos, no la probabilidad de cada resultado."
+        )
+        sensibilidad = self._sensitivity_section()
+        if sensibilidad:
+            lines.append("")
+            lines.append(sensibilidad)
+        return "\n".join(lines)
+
+    def _sensitivity_section(self) -> str:
+        """Tabla de sensibilidad del escenario base a descuento y crecimiento terminal.
+
+        Usa el mismo FCF base y las mismas tasas de crecimiento del escenario base: solo
+        se mueven la tasa de descuento y el crecimiento terminal. Las combinaciones que el
+        modelo rechaza (crecimiento terminal >= tasa de descuento) se declaran no
+        calculables; no se rellenan.
+        """
+        if not self.scenarios:
+            return ""
+        base = next(
+            (s for s in self.scenarios if "base" in s.scenario.name.lower()),
+            self.scenarios[1] if len(self.scenarios) > 1 else self.scenarios[0],
+        )
+        assumptions = base.dcf.assumptions
+        growth_rates = list(base.scenario.revenue_growth_rates)
+        if not growth_rates:
+            return ""
+        forecast_years = assumptions.forecast_years
+        if len(growth_rates) < forecast_years:
+            growth_rates = growth_rates + [growth_rates[-1]] * (forecast_years - len(growth_rates))
+        base_rate = assumptions.discount_rate
+        base_terminal = assumptions.terminal_growth
+        rates = [round(base_rate + delta, 6) for delta in (-0.01, 0.0, 0.01)]
+        terminals = [round(base_terminal + delta, 6) for delta in (-0.005, 0.0, 0.005)]
+        table = sensitivity_table(
+            base.base_fcf,
+            growth_rates[:forecast_years],
+            assumptions,
+            rates,
+            terminals,
+        )
+        if not table:
+            return ""
+        lines = [f"### Sensibilidad del escenario base ({base.scenario.name})", ""]
+        lines.append(
+            "Mismo FCF base y mismo crecimiento de flujo que el escenario base. Solo cambian "
+            "la tasa de descuento (filas) y el crecimiento terminal (columnas). Las celdas "
+            "«no calculable» son combinaciones que el modelo rechaza; no se rellenan."
+        )
+        lines.append("")
+        lines.append(
+            "| Tasa de descuento | "
+            + " | ".join(f"g = {terminal:.2%}" for terminal in terminals)
+            + " |"
+        )
+        lines.append("| --- | " + " | ".join("---" for _ in terminals) + " |")
+        for rate in rates:
+            cells = []
+            for terminal in terminals:
+                value = table.get((rate, terminal))
+                cells.append(f"{value:,.2f}" if value is not None else "no calculable")
+            label = f"{rate:.2%}" + (" (base)" if abs(rate - base_rate) < 1e-9 else "")
+            lines.append(f"| {label} | " + " | ".join(cells) + " |")
+        lines.append("")
+        lines.append(
+            f"Valor por acción en {base.currency}. La tabla mide sensibilidad a supuestos: no es "
+            "una previsión, no es un rango de precio objetivo y no incorpora precio de mercado "
+            "ni margen de seguridad."
         )
         return "\n".join(lines)
 

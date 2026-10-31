@@ -317,3 +317,51 @@ class TestRealFiguresInReport:
 
     def test_calendar_inferred_from_annual_closes(self, apple_report):
         assert apple_report.calendar == FiscalCalendar(close_month=9)
+
+
+class TestSensitivitySection:
+    """La sensibilidad del escenario base forma parte del informe, con supuestos visibles."""
+
+    @staticmethod
+    def _filas(section: str):
+        filas = []
+        for linea in section.splitlines():
+            celdas = [c.strip() for c in linea.strip().strip("|").split("|")]
+            if len(celdas) >= 2 and "%" in celdas[0]:
+                filas.append(celdas)
+        return filas
+
+    def test_section_present_in_report(self, apple_markdown):
+        assert "### Sensibilidad del escenario base" in apple_markdown
+        assert "| Tasa de descuento |" in apple_markdown
+
+    def test_section_is_not_a_price_target(self, apple_markdown):
+        text = apple_markdown
+        inicio = text.index("### Sensibilidad del escenario base")
+        bloque = text[inicio : text.index("## 8.", inicio)]
+        assert "no es" in bloque and "previsión" in bloque
+        assert "no es un rango de precio objetivo" in bloque
+
+    def test_table_has_three_rates_and_numeric_cells(self, apple_report):
+        filas = self._filas(apple_report._sensitivity_section())
+        assert len(filas) == 3
+        for celdas in filas:
+            assert len(celdas) == 4  # tasa + tres crecimientos terminales
+            for valor in celdas[1:]:
+                float(valor.replace(",", ""))
+
+    def test_value_falls_as_discount_rate_rises(self, apple_report):
+        filas = self._filas(apple_report._sensitivity_section())
+        primera_columna = [float(f[1].replace(",", "")) for f in filas]
+        assert primera_columna[0] > primera_columna[1] > primera_columna[2]
+
+    def test_value_rises_with_terminal_growth(self, apple_report):
+        filas = self._filas(apple_report._sensitivity_section())
+        base = next(f for f in filas if "(base)" in f[0])
+        valores = [float(v.replace(",", "")) for v in base[1:]]
+        assert valores[0] < valores[1] < valores[2]
+
+    def test_sensitivity_absent_without_scenarios(self, apple_report):
+        report = build_real_report(_apple_result(), generated_at=GENERATED_AT)
+        report.scenarios = []
+        assert report._sensitivity_section() == ""
