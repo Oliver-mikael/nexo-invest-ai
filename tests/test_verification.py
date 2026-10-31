@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 
 from nexo_invest.core.sources import ProvenanceLevel
-from nexo_invest.core.units import Period, Frequency
 from nexo_invest.data.nasdaq import (
     NasdaqError,
     NasdaqHistory,
