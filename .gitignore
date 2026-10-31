@@ -20,6 +20,9 @@ dist/
 *.egg-info/
 
 # Copias de seguridad (ZIPs, bundles, manifiestos) fuera del código fuente
+# Copia completa de trabajo (duplicado del código ya versionado)
+nexo-invest-ai-complete/
+
 backups/
 *.zip
 *.bundle
