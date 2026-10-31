@@ -38,11 +38,25 @@ verificable, sin cambiar el comportamiento del motor.
   módulos, suite completa y comprobación de la CLI en Python 3.10 y 3.12.
 - `[tool.ruff.lint]` fija las reglas (E4, E7, E9, F, W) para que la comprobación sea estable.
 
+### Tarea 4 — Sensibilidad visible en el informe
+
+- `sensitivity_table` existía y estaba probada desde el ciclo 3, pero ningún informe la usaba.
+  El informe de empresa incluye ahora `### Sensibilidad del escenario base`: tasa de descuento
+  ±1 punto porcentual (filas) frente a crecimiento terminal ±0,5 puntos (columnas), con el
+  mismo FCF y el mismo crecimiento de flujo del escenario base.
+- Las combinaciones que el modelo rechaza aparecen como «no calculable»: no se rellenan.
+- El bloque declara explícitamente que mide sensibilidad a supuestos y que no es una
+  previsión ni un rango de precio objetivo.
+- Seis pruebas nuevas sobre la sección (presencia, aviso, estructura, monotonía en ambas
+  variables y ausencia cuando no hay escenarios).
+
 ### Limitaciones que se mantienen
 
 - El motor no cambia: siguen en pie las limitaciones de datos de los ciclos 2 y 3 (TTM de Apple
   no disponible en la fuente, Nasdaq no es fuente primaria independiente, precios de Yahoo no
   oficiales).
+- La sensibilidad solo cubre tasa de descuento y crecimiento terminal. No incluye sensibilidad
+  al margen ni al crecimiento del flujo porque esos parámetros ya se mueven entre escenarios.
 
 ## 0.3.0 — 2026-10-28 (Ciclo 3)
 

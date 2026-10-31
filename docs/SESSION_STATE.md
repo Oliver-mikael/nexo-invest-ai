@@ -26,6 +26,8 @@ Raíz:
 - `pyproject.toml` — Python 3.10, hatchling, CLI `nexo`, **sin dependencias de ejecución**
   (`pytest` y `ruff` solo como dev extra) y reglas de Ruff fijadas.
 - `.github/workflows/ci.yml` — CI: instalación, Ruff, import de todos los módulos, pruebas y CLI.
+- `docs/VALIDATION.md` — registro de las validaciones con datos reales (Apple y Microsoft,
+  2026-10-31) con comandos, cifras y SHA-256 de los documentos.
 - `scripts/update_reports.sh` — regenera informes y prueba histórica con registro de éxito/fallo.
 - `reports/` — informes reales generados (ver abajo).
 - `backups/` — respaldos históricos por fecha (los anteriores no se tocan).
@@ -88,7 +90,7 @@ Raíz:
 ## Estado de las pruebas
 
 ```
-python3 -m pytest        →  391 passed, 1 skipped
+python3 -m pytest        →  397 passed, 1 skipped
 ```
 
 Reparto por archivo: analysis_report 26, backtest 26, backtest_audit 10, dcf 21, metrics 21,
