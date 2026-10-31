@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nexo Invest AI">
+  <rect width="512" height="512" rx="112" fill="#0d1215"/>
+  <rect x="96" y="300" width="64" height="116" rx="14" fill="#0f8466"/>
+  <rect x="192" y="228" width="64" height="188" rx="14" fill="#4fbf9a"/>
+  <rect x="288" y="156" width="64" height="260" rx="14" fill="#c67b1b"/>
+  <path d="M112 190 L208 140 L304 96 L400 64" fill="none" stroke="#f6f5f0" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round"/>
+</svg>

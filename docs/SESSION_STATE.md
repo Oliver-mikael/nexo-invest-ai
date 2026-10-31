@@ -1,12 +1,42 @@
 # Estado de la sesión — Nexo Invest AI
 
-Fecha de esta sesión: 2026-10-31 (Ciclo 4)
+Fecha de esta sesión: 2026-10-31 (Ciclo 5)
 Espacio de trabajo: `/home/daytona/codebase`
 Repositorio remoto: `Oliver-mikael/nexo-invest-ai` (público desde el 2026-10-31)
-Versión del producto: 0.3.0
-Rama de trabajo: `feat/complete-source-integration` (Pull Request abierto contra `main`)
+Versión del producto: 1.0.0 (motor 0.3.0)
+Rama de trabajo: `feat/platform-v1` (Pull Request contra `main`)
 
 Documento de continuidad: lo que necesitas para retomar el trabajo sin reconstruir contexto.
+
+## Ciclo 5 — plataforma web, móvil y multi-IA
+
+El repositorio ya no es solo un motor + CLI. Sobre él se añadió, sin reescribir el motor:
+
+- `app/` — backend FastAPI (API v1), persistencia SQLAlchemy + Alembic, autenticación por
+  token, trabajos persistentes, orquestador multi-IA, auditoría determinista de cifras,
+  cartera simulada y exportaciones.
+- `web/` — PWA React + TypeScript + Vite + Tailwind: panel, explorador, análisis con
+  calculadora DCF, centro de investigación con seguimiento en vivo, informes, cartera y
+  ajustes. Manifest, service worker e iconos incluidos.
+- `tests/platform/` — 37 pruebas nuevas, sin red, con `FakeProvider` y SQLite temporal.
+- `Dockerfile`, `docker-compose.yml`, `env.example`, `docs/PLATFORM.md`.
+
+Comandos de verificación:
+
+```bash
+pytest                                        # 434 passed, 1 skipped
+ruff check src app tests                      # limpio
+cd web && npm run typecheck && npm run build  # limpio
+alembic upgrade head && alembic check         # esquema al día
+```
+
+Arranque: `uvicorn app.main:app --port 8000` (con `PYTHONPATH=src:.`) y, para desarrollo de
+la interfaz, `cd web && npm run dev`. El backend sirve `web/dist` en `/` si existe.
+
+## Contexto del motor (ciclos anteriores)
+
+El motor financiero y su CLI se mantienen tal como se describen a continuación; la
+plataforma los consume como biblioteca.
 
 ## Qué es hoy el proyecto
 

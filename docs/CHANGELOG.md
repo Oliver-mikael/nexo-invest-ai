@@ -1,5 +1,64 @@
 # CHANGELOG — Nexo Invest AI
 
+## 1.0.0 — 2026-10-31 (Ciclo 5: plataforma web, móvil y multi-IA)
+
+Transformación del motor verificable en un producto ejecutable, sin reescribir el motor
+ni debilitar sus pruebas.
+
+### Backend y API
+
+- `app/` — API FastAPI v1 con autenticación por token opaco, aislamiento por usuario,
+  errores uniformes (`{"error": {code, message, details}}`), límites de peticiones,
+  documentación OpenAPI y CORS configurable.
+- `app/services/engine.py` — fachada del motor: serializa métricas, series, escenarios y
+  sensibilidad; calcula valoraciones con supuestos del usuario sin duplicar fórmulas.
+- `app/services/research.py` — informe de 18 secciones con etiqueta de base por sección y
+  auditoría de cifras.
+- `app/services/jobs.py` — cola persistente en base de datos, recuperación tras reinicio,
+  cancelación cooperativa, reintentos acotados y control de presupuesto.
+- `app/services/portfolio.py` — cartera simulada con coste medio, beneficio realizado y
+  validación de efectivo/posición en el servidor.
+- `app/services/export.py` — Markdown, CSV y HTML imprimible (sin dependencias nuevas).
+- `app/models.py` + `migrations/` — esquema con Alembic (13 tablas) verificado con
+  `upgrade`, `check` y `downgrade`.
+
+### Orquestador multi-IA
+
+- `app/ai/` — interfaz común de proveedores, adaptadores OpenAI (y compatibles),
+  Anthropic, Gemini y local, más `FakeProvider` para pruebas.
+- Perfiles `basic` (sin IA), `standard` y `deep`; cinco roles con presupuesto por trabajo,
+  reintentos, timeouts y registro de tokens/coste por rol.
+- `app/ai/audit.py` — auditoría determinista: cifras del texto que no rastrean al
+  expediente se marcan (tolerancia 2 % en importes, 1 pp en porcentajes).
+
+### Interfaz web y PWA
+
+- `web/` — React 18 + TypeScript + Vite + Tailwind. Paneles de inicio, explorador,
+  análisis con calculadora DCF y sensibilidad, centro de investigación con seguimiento en
+  vivo, informes con auditoría, cartera simulada y ajustes.
+- PWA: manifest, iconos 192/512/maskable generados sin dependencias, service worker con
+  política explícita (API solo red) y página offline.
+- Responsive con navegación inferior en móvil y estados de conexión/sincronización.
+
+### Pruebas y despliegue
+
+- 37 pruebas nuevas de plataforma (`tests/platform/`), sin red y con base temporal: auth,
+  aislamiento, análisis, valoración, investigación con proveedor simulado, auditoría,
+  presupuesto, cancelación, cartera, exportaciones y recuperación de trabajos.
+- Total: **434 pruebas en verde, 1 omitida**; Ruff limpio en `src`, `app` y `tests`.
+- CI ampliado: motor en 3.10/3.12, migraciones, arranque de la API, typecheck y build de
+  la PWA con verificación de artefactos.
+- `Dockerfile` multi-stage, `docker-compose.yml` (API + PostgreSQL), `env.example` sin
+  secretos y `docs/PLATFORM.md` con arquitectura, endpoints y límites.
+
+### Limitaciones nuevas declaradas
+
+- Cola y límite de peticiones en proceso: una sola réplica sin Redis.
+- Sin pruebas de navegador automatizadas ni APK; la PWA es instalable pero no se empaquetó
+  con Capacitor.
+- El precio de mercado de la calculadora es opcional y lo aporta el usuario; no se usa
+  Yahoo para el margen de seguridad.
+
 ## No publicado — 2026-10-31 (Ciclo 4: integridad del repositorio)
 
 Objetivo: que el repositorio contenga el proyecto completo y que lo que se publique sea

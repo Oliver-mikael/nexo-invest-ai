@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sin conexión — Nexo Invest AI</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f6f5f0;
+        color: #0d1215;
+        padding: 24px;
+      }
+      .panel {
+        max-width: 460px;
+        background: #fff;
+        border: 1px solid rgba(13, 18, 21, 0.1);
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 20px 48px -32px rgba(13, 18, 21, 0.5);
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #a86413;
+        background: #f8eddb;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-weight: 700;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 18px 0 10px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        line-height: 1.6;
+        color: #4b5c66;
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      ul {
+        margin: 16px 0 24px;
+        padding-left: 18px;
+        color: #4b5c66;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        background: #0b6b53;
+        color: #fff;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      small {
+        display: block;
+        margin-top: 14px;
+        color: #8a9aa3;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <span class="badge">Sin conexión</span>
+      <h1>Nexo Invest necesita red para investigar</h1>
+      <p>
+        Esta aplicación no guarda cifras financieras ni datos de sesión en la caché del
+        dispositivo: son datos sensibles y siempre se piden al servidor.
+      </p>
+      <ul>
+        <li>Puedes volver a abrir la app; el panel se cargará al recuperar la conexión.</li>
+        <li>Las investigaciones en curso siguen ejecutándose en el servidor.</li>
+        <li>Los informes ya descargados siguen en tu equipo.</li>
+      </ul>
+      <button onclick="location.reload()">Reintentar</button>
+      <small>Nexo Invest AI · Los datos no se cachean fuera del servidor.</small>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+# Desarrollo y despliegue de una sola máquina.
+# Producción pequeña: `docker compose up -d --build` con las variables del .env.
+# Para varios workers o varias réplicas hace falta mover la cola de trabajos a
+# Redis (ver docs/PLATFORM.md) y el límite de peticiones a un almacén compartido.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexo}
+      POSTGRES_DB: ${POSTGRES_DB:-nexo}
+    volumes:
+      - nexo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexo} -d ${POSTGRES_DB:-nexo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-nexo}:${POSTGRES_PASSWORD:-nexo}@db:5432/${POSTGRES_DB:-nexo}
+      NEXO_ENV: production
+      NEXO_ALLOW_REGISTRATION: ${NEXO_ALLOW_REGISTRATION:-true}
+      NEXO_SEC_CONTACT: ${NEXO_SEC_CONTACT:?Define NEXO_SEC_CONTACT con un correo de contacto}
+      NEXO_AI_PROFILE: ${NEXO_AI_PROFILE:-standard}
+      NEXO_AI_OPENAI_KEY: ${NEXO_AI_OPENAI_KEY:-}
+      NEXO_AI_OPENAI_MODEL: ${NEXO_AI_OPENAI_MODEL:-gpt-4o-mini}
+      NEXO_AI_ANTHROPIC_KEY: ${NEXO_AI_ANTHROPIC_KEY:-}
+      NEXO_AI_GEMINI_KEY: ${NEXO_AI_GEMINI_KEY:-}
+      NEXO_MONTHLY_BUDGET_USD: ${NEXO_MONTHLY_BUDGET_USD:-10}
+      NEXO_CORS_ORIGINS: ${NEXO_CORS_ORIGINS:-*}
+    ports:
+      - "8000:8000"
+    volumes:
+      - nexo-cache:/app/.sec_cache
+
+volumes:
+  nexo-db:
+  nexo-cache:

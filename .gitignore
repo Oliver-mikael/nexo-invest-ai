@@ -19,6 +19,20 @@ build/
 dist/
 *.egg-info/
 
+# Plataforma web: dependencias y build de la PWA
+node_modules/
+web/dist/
+web/.vite/
+
+# Base de datos local y cachés de ejecución del backend
+var/
+*.db
+*.db-wal
+*.db-shm
+.price_cache/
+coverage/
+htmlcov/
+
 # Copias de seguridad (ZIPs, bundles, manifiestos) fuera del código fuente
 # Copia completa de trabajo (duplicado del código ya versionado)
 nexo-invest-ai-complete/
@@ -32,3 +46,4 @@ backups/
 # Sistema
 .DS_Store
 Thumbs.db
+web/*.tsbuildinfo

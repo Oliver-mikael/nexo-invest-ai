@@ -6,8 +6,8 @@ on:
     branches: ["main"]
 
 jobs:
-  pruebas:
-    name: Python ${{ matrix.python-version }}
+  motor:
+    name: Motor y API · Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -21,11 +21,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Instalar el paquete desde la copia limpia
+      - name: Instalar el paquete y el backend
         run: python -m pip install -e ".[dev]"
 
-      - name: Ruff
-        run: ruff check src tests
+      - name: Ruff (motor + app + pruebas)
+        run: ruff check src app tests
 
       - name: Importar todos los módulos del paquete
         run: |
@@ -41,10 +41,70 @@ jobs:
           print(f"{len(modulos)} módulos importados correctamente")
           PY
 
-      - name: Pruebas
+      - name: Pruebas (motor + plataforma, sin red)
         run: python -m pytest
+
+      - name: Migraciones aplican sobre una base vacía y no quedan pendientes
+        env:
+          NEXO_DATABASE_URL: sqlite:///./var/ci.db
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
 
       - name: Verificar que la CLI responde
         run: |
           python -m nexo_invest.cli --version
           nexo --version
+
+      - name: La API arranca y responde /health
+        env:
+          NEXO_DATABASE_URL: sqlite:///./var/ci-api.db
+          NEXO_STATIC_DIR: ./no-static
+        run: |
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+          from app.main import create_app
+          from app.config import load_settings
+
+          with TestClient(create_app(load_settings(), start_workers=False)) as client:
+              response = client.get("/api/v1/health")
+              assert response.status_code == 200, response.text
+              assert response.json()["database"] == "ok"
+              print("API OK", response.json()["version"])
+          PY
+
+  web:
+    name: Web y PWA
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build de producción (incluye manifest y service worker)
+        run: npm run build
+
+      - name: Comprobar artefactos PWA
+        run: |
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          test -f dist/icons/icon-192.png
+          test -f dist/icons/icon-512.png
+          test -f dist/offline.html
+          echo "PWA completa"
