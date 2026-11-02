@@ -9,6 +9,7 @@ const NAV = [
   { to: "/informes", label: "Informes", icon: "❐" },
   { to: "/cartera-real", label: "Cartera real", icon: "▦" },
   { to: "/cartera", label: "Simulada", icon: "◈" },
+  { to: "/datos", label: "Datos", icon: "◍" },
   { to: "/ajustes", label: "Ajustes", icon: "⚙" },
 ]
 

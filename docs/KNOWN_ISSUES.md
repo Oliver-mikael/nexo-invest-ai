@@ -1,26 +1,29 @@
 # KNOWN_ISSUES — Nexo Invest AI
 
-Actualizado: 2026-10-31 · Plataforma 2.0 · Motor 0.3.0
+Actualizado: 2026-11-02 · Plataforma 2.0 · Motor 0.3.0
 
 Este documento recoge las limitaciones **reales y comprobadas** del sistema, no las que
 existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
 
 ## Cartera real multimercado (2.0)
 
-- **No hay proveedor automático de precios, fundamentales, dividendos, noticias ni
-  calendarios.** La valoración usa cotizaciones registradas con fuente y fecha (manuales o
-  importadas). No se presenta un precio retrasado como tiempo real; cada dato lleva
-  `source`, `as_of` y `quality`.
+- **Los proveedores automáticos cubren divisas, precios históricos y fundamentales
+  (fase 5); dividendos, noticias, eventos y calendarios siguen sin proveedor.**
+  La valoración de la cartera sigue pudiendo usar cotizaciones manuales o importadas; los
+  datos de proveedor entran por `POST /api/v1/data/sync/*` con `source`, `as_of` y `quality`.
+  No se presenta un precio retrasado como tiempo real; la nueva columna `quote_quality`
+  aparece en cada posición de la cartera real.
 - **El OCR no está verificado de extremo a extremo en este workspace** porque el binario
   `tesseract-ocr` no está instalado. La lógica de extracción, el flujo de revisión y la
   confirmación están implementados y probados con un extractor simulado; el contenedor
   instala Tesseract. Si falta, la API devuelve 503 y no finge una extracción.
 - **No hay APK Android.** La PWA es instalable, pero Capacitor no se ha generado ni probado
   en dispositivo/emulador; no se declara un APK inexistente.
-- **No hay workers independientes, scheduler ni alertas.** La cartera real no depende de la
-  cola de investigación, pero las actualizaciones automáticas, notificaciones PWA/Android y
-  el centro de alertas siguen pendientes. La cola actual es un `ThreadPoolExecutor` en
-  proceso y no sirve para varias réplicas.
+- **No hay alertas ni notificaciones.** La recopilación de datos ya tiene su propia cola
+  ligera en proceso (`DataSyncRunner`, con recuperación y anti-duplicados), pero sigue sin
+  haber workers independientes para la investigación, scheduler de alertas ni avisos
+  PWA/Android. La cola actual es un `ThreadPoolExecutor` en proceso y no sirve para varias
+  réplicas: eso es trabajo de la fase 6.
 - **No hay ejecución de órdenes ni conexión con brókers.** El nombre del bróker es texto; no
   se guardan credenciales. La plataforma es de seguimiento y registro.
 - **TWR depende del histórico de precios/divisas.** Si falta una valoración en una fecha de
@@ -34,14 +37,46 @@ existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
 - **SQLite no es una base contable exacta a nivel de almacenamiento.** Los cálculos usan
   `Decimal`, pero SQLite guarda con afinidad numérica. Para producción contable, PostgreSQL
   con `Numeric` es el entorno previsto.
-- **El tipo de cambio histórico lo aporta el usuario o el importador.** No se valida contra
-  un proveedor externo ni se corrige retroactivamente. Si la fuente es incorrecta, el
-  resultado cambia; queda registrada la fuente.
+- **El tipo de cambio histórico** puede venir del usuario, del importador o de la
+  sincronización de divisas (Frankfurter, histórico con `force` para corregir). No se
+  corrige retroactivamente en silencio: cualquier sustitución queda registrada como
+  anomalía en el run con el valor anterior y el nuevo.
 - **La importación no guarda el archivo original**, solo el hash y las filas normalizadas de
   la previsualización. Para auditoría documental de importaciones hará falta una fase
   posterior.
 - **No hay pruebas de navegador.** La interfaz se verifica con TypeScript y build, no con
-  Playwright ni capturas automatizadas.
+  Playwright ni capturas automatizadas. Afecta también a la página `/datos`.
+
+## Datos automáticos (fase 5)
+
+- **Precios solo en US, DE, ES y GB (verificados).** StockAnalysis devuelve error explícito
+  para el resto (LATAM incluida): no se sustituye por otro mercado ni se inventa un precio.
+  Su API es **no oficial y sin clave**: puede cambiar, requerir credencial o limitar acceso;
+  los términos asumen uso personal sin redistribución (caché propia, sin reexposición).
+- **StockAnalysis no es el tape oficial ni tiempo real:** solo cierres diarios `close`. El
+  cierre sin ajustar y el ajustado se guardan aparte y no se mezclan.
+- **Frankfurter publica fecha de calendario, no instante intradía:** `as_of` es la fecha del
+  dato. Los datos son diarios (`close`), jamás `realtime`. Las consultas pinneadas a un
+  proveedor concreto (p. ej. BCBO) quedan sujetas a los términos de esa fuente.
+- **ExchangeRate-API es una tasa agregada de mercado:** se guarda con `kind=market` y en
+  Bolivia no se presenta como oficial. Sus términos exigen atribución y prohíben
+  redistribuir: solo se almacena para uso interno. 1 petición/24 h recomendada (429 con
+  bloqueo de 20 min si se excede); la caché con TTL evita el abuso.
+- **Las divergencias entre fuentes se registran, no se resuelven.** Si Frankfurter y
+  ER-API difieren más del 3 % para el mismo par y fecha, se guarda la anomalía con ambos
+  valores y fuentes; el sistema no elige «la tasa correcta».
+- **Durante la vigencia de la caché no se reconsulta** (60 min divisas actuales, 20 h
+  históricos y precios): el dato en pantalla puede tener hasta esa antigüedad además de la
+  fecha real que ya muestra.
+- **Fundamentales solo para emisores con CIK (EDGAR, EE. UU.).** EBITDA y flujo de caja
+  libre quedan en `null` porque la fuente no los publica como concepto; no se calculan y se
+  presentan como reportados. El resto de mercados se declara «no disponible».
+- **Sin proveedor de noticias, eventos ni calendarios.** El catálogo lo marca
+  `configured: false` y `GET /data/news` devuelve `available: false` con el motivo.
+- **El planificador está apagado por defecto** (`NEXO_DATA_SYNC_INTERVAL_MINUTES=0`): no
+  hay recopilación automática sin que se active explícitamente. La anti-duplicación por
+  `task_key` protege dentro de un proceso; entre varias réplicas queda una carrera
+  documentada hasta que haya un índice único y una cola compartida (fase 6).
 
 Las limitaciones históricas del motor financiero (procedencia, TTM, valoración, backtesting)
 se mantienen y se listan a continuación.

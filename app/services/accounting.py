@@ -562,6 +562,7 @@ class PositionValuation:
     realized_base: Decimal
     dividend_base: Decimal
     weight: Optional[Decimal] = None
+    quote_quality: str = ""
 
 
 @dataclass
@@ -632,6 +633,7 @@ class PortfolioValuation:
                     "price": None if item.price is None else str(item.price),
                     "quote_as_of": item.quote_as_of.isoformat() if item.quote_as_of else None,
                     "quote_source": item.quote_source,
+                    "quote_quality": item.quote_quality,
                     "market_value_local": text(item.market_value_local),
                     "market_value_base": text(item.market_value_base),
                     "unrealized_base": text(item.unrealized_base),
@@ -738,6 +740,7 @@ def value_portfolio(
                     price=price_point.price,
                     quote_as_of=price_point.as_of,
                     quote_source=price_point.source,
+                    quote_quality=price_point.quality,
                     market_value_local=None,
                     market_value_base=None,
                     unrealized_base=None,
@@ -766,11 +769,11 @@ def value_portfolio(
                 instrument=book.instrument,
                 quantity=book.quantity,
                 cost_local=cost_local,
-                cost_base=cost_base,
-                price=price_point.price,
-                quote_as_of=price_point.as_of,
-                quote_source=price_point.source,
-                market_value_local=local_value,
+                cost_base=cost_base,                    price=price_point.price,
+                    quote_as_of=price_point.as_of,
+                    quote_source=price_point.source,
+                    quote_quality=price_point.quality,
+                    market_value_local=local_value,
                 market_value_base=base_value,
                 unrealized_base=position_unrealized,
                 price_effect_base=price_effect,

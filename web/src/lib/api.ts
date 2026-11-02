@@ -435,6 +435,7 @@ export type RealPosition = {
   price: string | null
   quote_as_of: string | null
   quote_source: string
+  quote_quality: string
   market_value_local: string | null
   market_value_base: string | null
   unrealized_base: string | null
@@ -702,6 +703,123 @@ export const realApi = {
   deleteDocument: (id: number) =>
     api<{ ok: boolean }>(`/real/documents/${id}`, { method: "DELETE" }),
   downloadDocument: (id: number) => apiDownload(`/real/documents/${id}/file`),
+}
+
+// -- datos de mercado automáticos ---------------------------------------------
+
+export type DataProvider = {
+  name: string
+  category: "fx" | "prices" | "fundamentals" | "news"
+  label: string
+  configured: boolean
+  selected: boolean
+  supports_history: boolean
+  website: string
+  license_url: string
+  terms_url: string
+  limits: string
+}
+
+export type DataRun = {
+  id: number
+  provider: string
+  category: string
+  task_key: string
+  status: "queued" | "running" | "success" | "partial" | "cached" | "skipped" | "failed"
+  started_at: string | null
+  finished_at: string | null
+  attempts: number
+  request_count: number
+  items_fetched: number
+  items_stored: number
+  items_skipped: number
+  error: string
+  details: Record<string, unknown>
+}
+
+export type DataPairStatus = {
+  pair: string
+  base: string
+  quote: string
+  available: boolean
+  reason?: string
+  as_of?: string
+  sources?: string[]
+  values?: { source: string; rate: string; kind: string; quality: string }[]
+  stale?: boolean
+  days_old?: number
+  kind?: string
+}
+
+export type DataPriceStatus = {
+  instrument_uid: string
+  symbol: string
+  name: string
+  currency: string
+  market_id: number
+  as_of: string
+  quality: string
+  source: string
+  age_days: number
+  stale: boolean
+  auto_sync: boolean
+}
+
+export type DataStatus = {
+  providers: DataProvider[]
+  runs: DataRun[]
+  latest_by_category: Record<string, DataRun>
+  fx: DataPairStatus[]
+  prices: DataPriceStatus[]
+  scheduler: { enabled: boolean; interval_minutes: number; pairs: string[] }
+  generated_at: string
+}
+
+export type FundamentalFact = {
+  period_type: string
+  fiscal_start: string | null
+  fiscal_end: string
+  reported_at: string | null
+  currency: string
+  revenue: string | null
+  net_income: string | null
+  eps_diluted: string | null
+  shares_outstanding: string | null
+  total_debt: string | null
+  cash: string | null
+  source: string
+  quality: string
+  retrieved_at: string | null
+}
+
+export const dataApi = {
+  status: () => api<DataStatus>("/data/status"),
+  runs: (limit = 15) => api<{ items: DataRun[]; total: number }>(`/data/runs?limit=${limit}`),
+  syncFx: (base = "USD", quotes: string[] = ["EUR", "BOB"]) =>
+    api<{ run_id: number; status: string; background: boolean }>("/data/sync/fx", {
+      method: "POST",
+      body: { base, quotes, background: true },
+    }),
+  syncPrices: (instrumentUid: string) =>
+    api<{ run_id: number; status: string; background: boolean }>("/data/sync/prices", {
+      method: "POST",
+      body: { instrument_uid: instrumentUid, background: true },
+    }),
+  syncFundamentals: (instrumentUid: string) =>
+    api<{ run_id: number; status: string; background: boolean }>("/data/sync/fundamentals", {
+      method: "POST",
+      body: { instrument_uid: instrumentUid, background: true },
+    }),
+  toggleAutoSync: (instrumentUid: string, enabled: boolean) =>
+    api<{ instrument_uid: string; auto_sync: boolean }>(
+      `/data/instruments/${instrumentUid}/auto-sync`,
+      { method: "POST", body: { enabled } },
+    ),
+  fundamentals: (instrumentUid: string) =>
+    api<{ instrument_uid: string; items: FundamentalFact[]; total: number; note: string }>(
+      `/data/fundamentals/${instrumentUid}`,
+    ),
+  news: () => api<{ items: unknown[]; available: boolean; reason: string }>("/data/news"),
 }
 
 export const systemApi = {

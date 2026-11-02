@@ -1,6 +1,6 @@
 # Estado de la sesión — Nexo Invest AI 2.0
 
-Fecha: 2026-10-31 · Plataforma 2.0.0 · Motor 0.3.0
+Fecha: 2026-11-02 · Plataforma 2.0.0 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
 Rama de trabajo: `feat/multi-market-real-money` (independiente de `main`)
 Base: `f5b87c4` (PR #2, abierto y **sin fusionar**)
@@ -18,6 +18,11 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
   documentos con OCR local.
 - **Web/PWA** `web/`: React + TypeScript + Vite + Tailwind; panel, empresas, investigación,
   informes, cartera real (resumen/movimientos/importar/documentos), cartera simulada y ajustes.
+- **Datos de mercado automáticos (nuevo, fase 5)**: adaptadores Frankfurter y
+  ExchangeRate-API (divisas, BOB incluido), StockAnalysis (precios históricos US/DE/ES/GB)
+  y SEC EDGAR (fundamentales con CIK); runs con procedencia, caché con TTL, anomalías,
+  cola ligera con recuperación y anti-duplicados, API `/api/v1/data/*` y página `/datos`.
+  Planificador apagado por defecto; noticias declaradas sin proveedor.
 - **Despliegue**: Dockerfile multi-stage con Tesseract, compose con PostgreSQL, caché y volumen
   de documentos privados.
 
@@ -29,7 +34,7 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 | 2. Cartera real multimercado | Completada |
 | 3. Rentabilidad: FIFO/media, TWR, XIRR, divisas | Completada |
 | 4. Registro manual, CSV/XLSX y OCR con confirmación | Completada; OCR real condicionado a Tesseract |
-| 5. Proveedores automáticos de datos | Pendiente |
+| 5. Datos financieros automáticos y multimercado | Completada: divisas, precios históricos y fundamentales reales; noticias sin proveedor declarado |
 | 6. Workers, scheduler y alertas | Pendiente |
 | 7. Multiagentes por horizonte y tesis versionadas | Pendiente |
 | 8. Backtesting multimercado | Pendiente |
@@ -42,6 +47,10 @@ No se presenta ninguna fase pendiente como terminada.
 
 Tablas nuevas: `markets`, `instruments`, `quotes`, `fx_rates`, `real_accounts`,
 `real_movements`, `import_batches`, `documents`.
+
+Tablas de datos automáticos (fase 5): `provider_runs`, `data_cache`, `fundamentals`,
+`news_items`; columnas nuevas `quotes.adjusted`, `fx_rates.kind` e
+`instruments.auto_sync_prices`.
 
 - Identidad: `instruments.uid`; unicidad `(market_id, symbol)`; ISIN opcional.
 - Importes: `Numeric(28,10)` y `Numeric(24,10)`; cálculos con `Decimal`.
@@ -66,12 +75,17 @@ Tablas nuevas: `markets`, `instruments`, `quotes`, `fx_rates`, `real_accounts`,
 - `POST .../{id}/imports/preview`, `POST .../imports/{batch}/confirm`, `DELETE .../imports/{batch}`.
 - `POST/GET /api/v1/real/documents`, `POST .../{id}/extract`, `POST .../{id}/confirm`,
   `GET .../{id}/file`, `DELETE .../{id}`.
+- `GET /api/v1/data/status|providers|runs|fx-rates|fundamentals|news`.
+- `POST /api/v1/data/sync/fx|prices|fundamentals` (segundo plan por defecto) y
+  `POST /api/v1/data/instruments/{uid}/auto-sync`.
 
 ## Migración y esquema
 
 - Revisión inicial: `1af6489f6582`.
 - Nueva revisión: `1a0119241c07` — mercados, instrumentos, cotizaciones, divisas, cuentas
   reales, movimientos, importaciones y documentos.
+- Nueva revisión: `2b7d5f3a91e4` — runs de proveedor, caché, fundamentales, noticias y
+  columnas `quotes.adjusted` / `fx_rates.kind` / `instruments.auto_sync_prices`.
 - Verificada con `alembic upgrade head`, `alembic check` (sin operaciones pendientes) y
   `alembic downgrade base && alembic upgrade head` sobre SQLite temporal.
 - Los mercados de referencia se siembran al arrancar (`app/services/reference.py`) de forma
@@ -81,14 +95,14 @@ Tablas nuevas: `markets`, `instruments`, `quotes`, `fx_rates`, `real_accounts`,
 
 ```bash
 python3 -m pytest
-# 461 tests collected · 460 passed · 1 skipped (red) · 1 warning
+# 490 tests collected · 489 passed · 1 skipped (red) · 1 warning
 # StarletteDeprecationWarning por httpx/testclient; no afecta al resultado.
 
 python3 -m ruff check src app tests
 # All checks passed!
 
 cd web && npm run typecheck && npm run build
-# typecheck OK; build OK: 58 módulos, JS 298,33 kB (87,67 kB gzip), CSS 29,39 kB (5,82 kB gzip)
+# typecheck OK; build OK: 59 módulos, JS 315,98 kB (92,00 kB gzip), CSS 29,54 kB (5,85 kB gzip)
 
 rm -f var/migration.db
 NEXO_DATABASE_URL=sqlite:///./var/migration.db alembic upgrade head
@@ -104,6 +118,13 @@ Pruebas nuevas destacadas:
   `as_of`, overview por divisa e importación con duplicados/parcial.
 - `tests/platform/test_imports_ocr.py`: decimales y fechas, CSV/XLSX, campos OCR.
 - Documentos: firma real, 404 cruzado, OCR con extractor simulado, vínculo y bloqueo de borrado.
+- `tests/platform/test_market_data.py` (20): procedencia de divisas, no sobrescritura sin
+  `force`, caché, divergencias, 429 con reintentos, histórico, cierres/ajustados, frescura,
+  caída de proveedor sin pérdida de datos, mercado no soportado, fundamentales solo
+  reportados, requisito de CIK, aislamiento por usuario y validación de la API.
+- `tests/platform/test_data_automation.py` (9): anti-duplicados en encolado, recuperación
+  de runs interrumpidos, agotamiento de intentos, planificador apagado por defecto y
+  programación de pares + instrumentos con auto-sync.
 
 ## Arranque local
 
@@ -127,13 +148,16 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
 
 ## Limitaciones y riesgos abiertos
 
-1. Sin proveedor automático de precios/noticias/dividendos/calendarios; las cotizaciones se
-   registran con fuente y fecha. No se declara tiempo real sin serlo.
+1. Datos automáticos: cubiertos divisas (Frankfurter + ExchangeRate-API), precios
+   históricos (StockAnalysis, US/DE/ES/GB) y fundamentales (SEC con CIK). Siguen sin
+   proveedor dividendos, noticias, eventos y calendarios; LATAM sin cobertura de precios.
+   No se declara tiempo real sin serlo.
 2. OCR real no probado en este workspace: falta el binario Tesseract. El flujo con extractor
    simulado y la ruta de error 503 sí están probados.
 3. Sin APK/Capacitor probado; la PWA es instalable, nada más.
-4. Sin workers independientes, scheduler, alertas ni notificaciones. La cola existente es en
-   proceso y no soporta varias réplicas.
+4. La recopilación de datos tiene su cola ligera en proceso con recuperación y
+   anti-duplicados; la investigación sigue con `JobRunner`. Ninguna soporta varias
+   réplicas sin una cola compartida, y siguen sin haber alertas ni notificaciones.
 5. Sin tesis versionadas, oportunidades por horizonte ni backtesting multimercado.
 6. Consolidado multi-divisa solo por grupos; no hay total único sin tipo de cambio explícito.
 7. SQLite no conserva precisión decimal exacta en almacenamiento; producción debe usar
@@ -145,7 +169,8 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
 
 ## Próximo paso recomendado
 
-Fase 5: adaptadores de datos con procedencia y caché (precios/históricos, divisas, dividendos
-y calendarios) usando fuentes gratuitas, con pruebas sin red y sin contratar nada. Después,
-fase 6: cola externa y scheduler para actualizaciones y alertas. Cualquier proveedor de pago,
-OCR externo o envío de documentos a terceros requiere autorización explícita.
+Fase 6: cola compartida (Redis/RQ o Celery) cuando haya varias réplicas, scheduler de
+alertas y notificaciones PWA/Android, reintentos con criterios de negocio y ampliación de
+la cobertura de datos (dividendos, eventos y noticias solo con un proveedor de licencia
+clara; más mercados de precios). Cualquier proveedor de pago, OCR externo o envío de
+documentos a terceros requiere autorización explícita.

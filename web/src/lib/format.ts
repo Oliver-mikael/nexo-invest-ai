@@ -80,6 +80,31 @@ export function metricValue(metric: { kind: string; value: number | null; curren
   return ratio(metric.value)
 }
 
+/** Etiqueta honesta de la calidad de un dato: nunca presenta un retrasado como tiempo real. */
+export function qualityLabel(quality: string | null | undefined): {
+  text: string
+  tone: "fact" | "ai" | "warn" | "muted"
+} {
+  switch (quality) {
+    case "realtime":
+      return { text: "tiempo real", tone: "fact" }
+    case "delayed":
+      return { text: "retrasado", tone: "warn" }
+    case "close":
+      return { text: "cierre", tone: "fact" }
+    case "historical":
+      return { text: "histórico", tone: "muted" }
+    case "estimated":
+      return { text: "estimado", tone: "warn" }
+    case "reported":
+      return { text: "reportado", tone: "muted" }
+    case "metadata":
+      return { text: "metadato", tone: "muted" }
+    default:
+      return { text: quality || "sin calidad", tone: "warn" }
+  }
+}
+
 export function statusLabel(status: string): { text: string; tone: "fact" | "ai" | "warn" | "muted" } {
   switch (status) {
     case "completed":

@@ -311,12 +311,39 @@ Base: `f5b87c4` (PR #2, sin fusionar). `main` no se modifica.
 - Documentos privados, validación de firma, OCR local y confirmación humana.
 - Limitación: Tesseract no está instalado en este workspace; el contenedor lo incluye.
 
-### Fases 5 a 10 — Pendientes
+### Fase 5 — Datos financieros automáticos: COMPLETADA
 
-5. **Datos:** proveedores automáticos de precios, fundamentales, dividendos, noticias,
-   eventos, calendarios y divisas; caché, límites, reintentos y licencias.
-6. **Automatización:** workers independientes, cola persistente (Redis/RQ, Celery o
-   Dramatiq), scheduler, reintentos, alertas y notificaciones PWA/Android.
+- **Divisas (integración real verificada):** Frankfurter v2 como fuente primaria
+  (sin clave, 228 monedas, cubre BOB vía BCBO) y ExchangeRate-API como segunda fuente
+  para detectar divergencias. Calidad `close`, fecha de calendario del dato, `kind`
+  (oficial/referencia/mercado), caché con TTL, divergencias registradas sin unificar tasas.
+- **Precios históricos (integración real verificada):** StockAnalysis para US/DE/ES/GB
+  (AAPL, SAP, SAN, VOD comprobados en vivo); cierres diarios con cierre sin ajustar y
+  ajustado en identidades de fuente distintas. Mercados fuera de cobertura fallan con
+  error explícito, sin sustituir el dato.
+- **Fundamentales:** SEC EDGAR `companyfacts` para emisores con CIK; solo métricas
+  publicadas por el emisor (ingresos, beneficio neto, EPS diluido, caja, deuda LP y
+  acciones). EBITDA y FCF quedan en `null` en lugar de calcularse y presentarse como reportados.
+- **Noticias/eventos:** sin proveedor con licencia clara → `configured: false` declarado;
+  la API devuelve `available: false` con motivo, sin contenido inventado.
+- **Arquitectura:** paquete `app/services/data/` (adaptadores, `HttpFetcher` con timeout,
+  reintentos acotados y backoff, `DataSyncService` con runs/caché/anomalías,
+  `DataSyncRunner` con anti-duplicados y recuperación, `status` para la interfaz),
+  API `/api/v1/data/*` y página `/datos` en la PWA; indicador de calidad en cartera real.
+- **Migración** `2b7d5f3a91e4` (tablas `provider_runs`, `data_cache`, `fundamentals`,
+  `news_items` + columnas `quotes.adjusted`, `fx_rates.kind`, `instruments.auto_sync_prices`).
+- **Planificador apagado por defecto** (`NEXO_DATA_SYNC_INTERVAL_MINUTES=0`): sin
+  tráfico externo automático sin consentimiento.
+- 490 pruebas: 489 aprobadas, 1 omitida (red).
+
+### Fases 6 a 10 — Pendientes
+
+5. **Datos (resto):** dividendos, eventos, calendarios y noticias requieren un proveedor
+   con licencia clara; ampliar la cobertura de precios más allá de US/DE/ES/GB (LATAM sin
+   cobertura declarada, no rellenada).
+6. **Automatización:** cola compartida para varias réplicas (Redis/RQ, Celery o
+   Dramatiq), scheduler de alertas, notificaciones PWA/Android. La recopilación de datos
+   ya tiene `DataSyncRunner` en proceso con recuperación y anti-duplicados.
 7. **Inteligencia:** oportunidades por horizonte, Risk Analyst, seguimiento de tesis con
    versiones e informes comparables.
 8. **Backtesting:** multi-activo, divisas, liquidez, benchmark, walk-forward y corrección

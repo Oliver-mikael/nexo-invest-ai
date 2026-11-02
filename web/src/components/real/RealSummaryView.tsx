@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { ApiError, marketsApi, type Instrument, type Market, type RealSummary } from "../../lib/api"
-import { moneyString, pctRaw, shortDate } from "../../lib/format"
+import { moneyString, pctRaw, qualityLabel, shortDate } from "../../lib/format"
 import { Badge, Card, Field, Notice, SectionHeader, Stat, Table } from "../ui"
 
 function Distribution({
@@ -209,6 +209,9 @@ export function RealSummaryView({
                           <p className="text-[10px] text-ink-300">
                             {position.quote_source || "sin fuente"} · {shortDate(position.quote_as_of)}
                           </p>
+                          <Badge tone={qualityLabel(position.quote_quality).tone}>
+                            {qualityLabel(position.quote_quality).text}
+                          </Badge>
                         </>
                       ) : (
                         <Badge tone="warn">sin precio</Badge>

@@ -482,8 +482,81 @@ enviar órdenes añade riesgo legal y operativo no autorizado.
 Consecuencia: el bróker es texto descriptivo, no hay campos de usuario/clave ni endpoints
 de ejecución. La UI declara que no se envían órdenes.
 
-Ciclo 6 (2.0): 461 pruebas recolectadas, 460 aprobadas, 1 omitida. La fase 2 (cartera real
-y contabilidad) y la fase 4 (registro manual, importación y OCR con confirmación) están
-implementadas y probadas; las fases 5 a 10 (proveedores automáticos, workers, alertas,
-tesis, backtesting multimercado, Android y producción) siguen pendientes y no se presentan
-como terminadas.
+### 55. Divisas: Frankfurter primario y ExchangeRate-API como segunda opinión
+
+Motivo: hacía falta una integración real y gratuita de divisas que cubriera BOB (Bolivia)
+sin claves ni cuota. Stooq se descartó por exigir API key con CAPTCHA y limitar el uso a
+particular. Frankfurter v2 cubre 228 monedas con el BCBO y publica licencia; ExchangeRate-API
+Open es diaria, cubre BOB y permite detectar divergencias.
+
+Consecuencia: `fx_provider=frankfurter`, `fx_secondary_provider=erapi`. Ambas tasas se
+conservan por fuente con su `kind` (no se unifican); una divergencia superior al 3 % se
+registra como anomalía en el run. ER-API se usa con atribución y caché (sus términos
+prohíben redistribuir), solo para valoración interna.
+
+### 56. Precios históricos: StockAnalysis con cobertura declarada
+
+Motivo: Yahoo respondió 429 en este entorno y Stooq está cerrado; StockAnalysis devolvió
+200 sin clave para US, Alemania, España y Reino Unido con histórico diario.
+
+Consecuencia: `prices_provider=stockanalysis`, API **no oficial** y sin redistribución,
+caché obligatoria por TTL. El mapa mercado→bolsa es explícito (`EXCHANGE_BY_MIC`/
+`EXCHANGE_BY_COUNTRY`); cualquier mercado fuera de cobertura (p. ej. XMEX) lanza error
+explícito y no se sustituye por otro. Solo cierres diarios (`close`): nunca tiempo real.
+El cierre sin ajustar y el ajustado se guardan con identidad de fuente distinta
+(`stockanalysis` y `stockanalysis:adj`) para no mezclar semánticas.
+
+### 57. Sin Redis/Celery: `DataSyncRunner` en proceso
+
+Motivo: la auditoría previa mostró que `JobRunner` ya resuelve cola persistente con
+`ThreadPoolExecutor`, pero está acoplado a `ResearchJob` y al orquestador IA; reutilizarlo
+literalmente obligaría a mezclar trabajos de IA con datos de mercado.
+
+Consecuencia: se añade `DataSyncRunner` con el mismo patrón (hilos + estado en base de
+datos + recuperación al arrancar + `task_key` anti-duplicados) sin tocar la cola existente
+ni añadir dependencias. No es una segunda cola arbitraria: es el patrón ya probado en este
+repositorio, con el límite documentado de que con varias réplicas hará falta un broker
+compartido (fase 6). Ambos runners migran juntos.
+
+### 58. Planificador de datos apagado por defecto
+
+Motivo: activar recopilaciones automáticas generaría tráfico externo a proveedores sin
+consentimiento explícito, contra sus términos y contra el principio de no sorpresa.
+
+Consecuencia: `NEXO_DATA_SYNC_INTERVAL_MINUTES=0` y `Instrument.auto_sync_prices=false`
+por defecto. Se activa por entorno o desde la interfaz (`POST /data/instruments/{uid}/
+auto-sync`). La API de sincronización responde encolando en segundo plano para no bloquear.
+
+### 59. Fundamentales: solo lo que el emisor reporta
+
+Motivo: presentar un EBITDA o un flujo de caja libre calculados como si fueran reportados
+sería engañoso; la SEC no los publica como concepto XBRL estándar.
+
+Consecuencia: se almacenan ingresos, beneficio neto, EPS diluido, efectivo, deuda a largo
+plazo y acciones en circulación, con `quality=reported` y `period_type` anual/trimestral
+sin mezclar. EBITDA y FCF quedan en `null` y la interfaz lo explica. Solo emisores con CIK
+(EE. UU.); el resto de mercados queda como «no disponible», sin sustituto.
+
+### 60. Sin proveedor de noticias: se declara, no se inventa
+
+Motivo: no se encontró una fuente gratuita con licencia clara para titulares y eventos que
+cumpla las condiciones de la fase (procedencia, redistribución y caché).
+
+Consecuencia: el catálogo incluye la categoría `news` con `configured: false`, `GET
+data/news` devuelve `available: false` con el motivo y `news_items` queda preparada en el
+esquema. No se muestra ningún titular hasta que haya una fuente verificable.
+
+### 61. Un dato nuevo no sobrescribe uno válido
+
+Motivo: una respuesta errónea, incompleta o de otro día no debe pisar un dato ya almacenado.
+
+Consecuencia: la persistencia compara por identidad (par/fecha/fuente o instrumento/fecha/
+fuente); un valor distinto sin `force` se guarda como anomalía (`..._sin_force`) y el
+original permanece. Solo `force=true` sustituye, y también deja anomalía. Las fechas
+futuras, los saltos diarios extremos y los datos obsoletos se marcan sin descartarlos.
+
+Ciclo 6 (2.0): 490 pruebas recolectadas, 489 aprobadas, 1 omitida (red). Las fases 2, 3, 4
+y 5 (cartera real, rentabilidad, registro/importación/OCR y datos automáticos multimercado)
+están implementadas y probadas; las fases 6 a 10 (cola compartida, alertas, tesis,
+backtesting multimercado, Android y producción) siguen pendientes y no se presentan como
+terminadas.

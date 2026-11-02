@@ -9,6 +9,7 @@ from app.api.v1 import (
     companies,
     documents,
     imports,
+    marketdata,
     markets,
     portfolio,
     real,
@@ -23,6 +24,7 @@ api_router.include_router(system.router)
 api_router.include_router(auth.router)
 api_router.include_router(companies.router)
 api_router.include_router(markets.router)
+api_router.include_router(marketdata.router)
 api_router.include_router(real.router)
 api_router.include_router(imports.router)
 api_router.include_router(documents.router)

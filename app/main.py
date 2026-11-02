@@ -26,6 +26,8 @@ from app.ai.orchestrator import AIOrchestrator
 from app.config import Settings, load_settings
 from app.db import configure, init_db
 from app.errors import install_error_handlers
+from app.services.data.runner import DataSyncRunner
+from app.services.data.sync import DataSyncService
 from app.services.engine import EngineService
 from app.services.jobs import JobRunner
 from app.services.prices import PriceProvider, default_provider
@@ -72,17 +74,27 @@ def create_app(
             app.state.orchestrator,
         )
         app.state.jobs = runner
+        # Fase 5: capa de datos de mercado. Los adaptadores no se construyen con
+        # claves externas; el servicio y su cola comparten el mismo proceso.
+        data_service = DataSyncService(resolved)
+        app.state.data = data_service
+        data_runner = DataSyncRunner(resolved, data_service)
+        app.state.data_jobs = data_runner
         if start_workers:
             runner.start()
+            data_runner.start()
         logger.info(
-            "Nexo Invest AI %s iniciado (entorno=%s, ia=%s)",
+            "Nexo Invest AI %s iniciado (entorno=%s, ia=%s, planificador_datos=%s)",
             resolved.app_version,
             resolved.environment,
             bool(app.state.orchestrator.available),
+            resolved.data_sync_interval_minutes,
         )
         try:
             yield
         finally:
+            data_runner.shutdown()
+            data_service.close()
             runner.shutdown()
 
     application = FastAPI(

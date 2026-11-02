@@ -403,3 +403,60 @@ class DocumentOut(BaseModel):
 class DocumentConfirm(BaseModel):
     account_id: int
     movement: RealMovementCreate
+
+
+# -- Fase 5: datos automáticos de mercado -------------------------------------
+
+
+class DataSyncFxRequest(BaseModel):
+    base: Currency = "USD"
+    quotes: List[Currency] = Field(min_length=1, max_length=20)
+    start: Optional[date] = None
+    end: Optional[date] = None
+    providers: Optional[List[str]] = Field(default=None, max_length=5)
+    # `background` por defecto para no bloquear la petición de la API.
+    background: bool = True
+    force: bool = False
+
+    @field_validator("base")
+    @classmethod
+    def _base(cls, value: str) -> str:
+        return _currency(value)
+
+    @field_validator("quotes")
+    @classmethod
+    def _quotes(cls, value: List[str]) -> List[str]:
+        cleaned = [_currency(item) for item in value]
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("no puede haber cotizaciones repetidas")
+        return cleaned
+
+    @field_validator("providers")
+    @classmethod
+    def _providers(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        if value is None:
+            return None
+        cleaned = [item.strip().upper() for item in value if item.strip()]
+        if not cleaned:
+            return None
+        if any(not re.fullmatch(r"[A-Z0-9]{2,16}", item) for item in cleaned):
+            raise ValueError("clave de proveedor de divisas no válida")
+        return cleaned
+
+
+class DataSyncPricesRequest(BaseModel):
+    instrument_uid: str = Field(min_length=6, max_length=36)
+    start: Optional[date] = None
+    end: Optional[date] = None
+    background: bool = True
+    force: bool = False
+
+
+class DataSyncFundamentalsRequest(BaseModel):
+    instrument_uid: str = Field(min_length=6, max_length=36)
+    background: bool = True
+    force: bool = False
+
+
+class AutoSyncToggle(BaseModel):
+    enabled: bool

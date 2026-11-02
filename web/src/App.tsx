@@ -13,6 +13,7 @@ import { Reports } from "./pages/Reports"
 import { ReportDetail } from "./pages/ReportDetail"
 import { Portfolio } from "./pages/Portfolio"
 import { RealPortfolio } from "./pages/RealPortfolio"
+import { Data } from "./pages/Data"
 import { Settings } from "./pages/Settings"
 
 function ScrollToTop() {
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/informes/:id" element={<ReportDetail />} />
             <Route path="/cartera-real" element={<RealPortfolio />} />
             <Route path="/cartera" element={<Portfolio />} />
+            <Route path="/datos" element={<Data />} />
             <Route path="/ajustes" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Route>

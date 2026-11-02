@@ -9,7 +9,7 @@ para evaluar una empresa.
 
 ## Estado actual
 
-Versión: 2.0.0 (plataforma multimercado) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
+Versión: 2.0.0 (plataforma multimercado) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial) · Datos automáticos: **Frankfurter** y **ExchangeRate-API** (divisas), **StockAnalysis** (precios históricos US/DE/ES/GB) y **SEC companyfacts** (fundamentales con CIK)
 
 Lo que hoy funciona de verdad:
 
@@ -42,6 +42,13 @@ Lo que hoy funciona de verdad:
   oficial**), con costes, separación desarrollo/evaluación y una prueba automática de
   ausencia de sesgo de anticipación.
 - Informes Markdown reproducibles con trazabilidad fuente → dato → cálculo → conclusión.
+- **Datos financieros automáticos (fase 5):** divisas con dos fuentes reales (Frankfurter
+  primario, cubre BOB, y ExchangeRate-API para detectar divergencias), precios históricos
+  diarios reales en US/DE/ES/GB (StockAnalysis) y fundamentales de SEC EDGAR para emisores
+  con CIK. Cada dato lleva fuente, fecha del dato, fecha de consulta y calidad; la
+  sincronización se lanza desde `/datos` o por API, con caché, reintentos acotados y
+  ejecución en segundo plano. La automatización programada está **apagada por defecto** y
+  las noticias se declaran sin proveedor en lugar de inventarse.
 
 Lo que **no** está: fuente primaria independiente de la propia empresa (Nasdaq
 repite el mismo documento presentado), precios verificados de mercados oficiales,
@@ -70,7 +77,8 @@ de seguimiento, registro y análisis.
   humana obligatoria.
 - **Trazabilidad:** cotizaciones y tipos de cambio con fuente, fecha del dato y calidad
   (tiempo real, retrasado, cierre, histórico, estimado). Las cotizaciones manuales son
-  privadas: no pueden alterar la cartera de otro usuario.
+  privadas: no pueden alterar la cartera de otro usuario. La calidad de cada cierre
+  aparece en la cartera (`quote_quality`), junto a fuente y fecha.
 
 Sigue **sin** haber ejecución de órdenes, conexión con brókers, proveedor automático de
 noticias/eventos, APK Android ni garantía de que un precio sea el tape oficial. El OCR

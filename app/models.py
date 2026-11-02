@@ -11,7 +11,7 @@ Separación de responsabilidades:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
@@ -325,6 +325,9 @@ class Instrument(Base):
     isin: Mapped[Optional[str]] = mapped_column(String(12), nullable=True, unique=True)
     cik: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(16), default="active")
+    # Fase 5: si está activo, el planificador diario refresca precios para este
+    # instrumento. Por defecto apagado: nadie genera tráfico sin consentimiento.
+    auto_sync_prices: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
@@ -363,6 +366,9 @@ class Quote(Base):
     retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     source: Mapped[str] = mapped_column(String(64))
     quality: Mapped[str] = mapped_column(String(16), default="close")
+    # Semántica del precio: False = cierre sin ajustar (lo que usa la valoración),
+    # True = cierre ajustado por splits/dividendos cuando la fuente lo suministra.
+    adjusted: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class FxRate(Base):
@@ -394,6 +400,9 @@ class FxRate(Base):
     retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     source: Mapped[str] = mapped_column(String(64))
     quality: Mapped[str] = mapped_column(String(16), default="close")
+    # Natureza de la tasa cuando la fuente la identifica: official | market |
+    # reference | estimated. En Bolivia no hay una única tasa representativa.
+    kind: Mapped[str] = mapped_column(String(16), default="market")
 
 
 # ---------------------------------------------------------------------------
@@ -513,3 +522,114 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+# ---------------------------------------------------------------------------
+# Fase 5: datos financieros automáticos.
+# Los datos de proveedor son globales (`user_id` nulo). Lo que sigue nunca
+# comparte tablas con las posiciones privadas del usuario.
+# ---------------------------------------------------------------------------
+
+
+class ProviderRun(Base):
+    """Registro persistente de una ejecución de recopilación de datos.
+
+    Permite auditar qué trajo cada proveedor, cuándo, cuántos registros aceptó y
+    por qué falló. Un run interrumpido se detecta por `finished_at` nulo.
+    """
+
+    __tablename__ = "provider_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    category: Mapped[str] = mapped_column(String(24), index=True)  # fx|prices|fundamentals|news
+    task_key: Mapped[str] = mapped_column(String(191), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=1)
+    request_count: Mapped[int] = mapped_column(Integer, default=0)
+    items_fetched: Mapped[int] = mapped_column(Integer, default=0)
+    items_stored: Mapped[int] = mapped_column(Integer, default=0)
+    items_skipped: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(Text, default="")
+    details: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class DataCache(Base):
+    """Caché de respuestas de proveedor para no repetir solicitudes.
+
+    La clave incluye proveedor, categoría y sujeto. Caducada, se vuelve a pedir;
+    nunca se sirve una respuesta caducada como si fuera fresca.
+    """
+
+    __tablename__ = "data_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cache_key: Mapped[str] = mapped_column(String(191), unique=True, index=True)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    category: Mapped[str] = mapped_column(String(24), index=True)
+    subject: Mapped[str] = mapped_column(String(191), default="")
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class FundamentalFact(Base):
+    """Fundamento reportado por el emisor (SEC XBRL u otra fuente).
+
+    `period_type` distingue anual de trimestral: nunca se mezclan. Los campos
+    calculados (P/E, ROE…) se derivan en el servicio y se marcan como tales.
+    """
+
+    __tablename__ = "fundamentals"
+    __table_args__ = (
+        UniqueConstraint(
+            "instrument_id", "period_type", "fiscal_end", "source",
+            name="uq_fundamental_instrument_period_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    period_type: Mapped[str] = mapped_column(String(16))  # annual | quarter
+    fiscal_start: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    fiscal_end: Mapped[date] = mapped_column(Date, index=True)
+    reported_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    revenue: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    net_income: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    ebitda: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    eps_diluted: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    shares_outstanding: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    total_debt: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    cash: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    free_cash_flow: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), index=True)
+    quality: Mapped[str] = mapped_column(String(16), default="reported")
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class NewsItem(Base):
+    """Metadato de noticia o evento corporativo; nunca el artículo completo."""
+
+    __tablename__ = "news_items"
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_news_source_external"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instruments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    category: Mapped[str] = mapped_column(String(24), default="news")  # news|earnings|dividend|split|calendar
+    title: Mapped[str] = mapped_column(String(255))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    url: Mapped[str] = mapped_column(String(512), default="")
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(String(64), index=True)
+    external_id: Mapped[str] = mapped_column(String(191))
+    quality: Mapped[str] = mapped_column(String(16), default="metadata")
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

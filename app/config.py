@@ -141,6 +141,26 @@ class Settings:
     max_upload_bytes: int = 10 * 1024 * 1024
     max_import_rows: int = 2000
 
+    # Fase 5: recopilación automática de datos de mercado.
+    # Ningún proveedor exige clave por defecto; si un proveedor futuro necesita
+    # una, su clave vive solo en el proceso del servidor, nunca en el navegador.
+    fx_provider: str = "frankfurter"
+    fx_secondary_provider: str = "erapi"
+    prices_provider: str = "stockanalysis"
+    data_sync_pairs: str = "USD/EUR,EUR/USD,USD/BOB"
+    data_http_timeout_seconds: float = 20.0
+    data_http_retries: int = 2
+    data_backoff_seconds: float = 0.6
+    data_fx_latest_ttl_minutes: int = 60
+    data_fx_history_ttl_hours: int = 20
+    data_prices_ttl_hours: int = 20
+    data_stale_after_days: int = 5
+    data_fx_divergence_threshold: float = 0.03
+    # 0 mantiene el planificador apagado; las sincronizaciones manuales siguen
+    # disponibles. Así no se genera tráfico externo sin que lo actives.
+    data_sync_interval_minutes: int = 0
+    data_max_sync_per_run: int = 25
+
     @property
     def database_dsn(self) -> str:
         if self.database_url:
@@ -278,4 +298,18 @@ def load_settings() -> Settings:
         ),
         max_upload_bytes=_env_int("NEXO_MAX_UPLOAD_BYTES", 10 * 1024 * 1024),
         max_import_rows=_env_int("NEXO_MAX_IMPORT_ROWS", 2000),
+        fx_provider=_env("NEXO_FX_PROVIDER", "frankfurter"),
+        fx_secondary_provider=_env("NEXO_FX_SECONDARY_PROVIDER", "erapi"),
+        prices_provider=_env("NEXO_PRICES_PROVIDER", "stockanalysis"),
+        data_sync_pairs=_env("NEXO_DATA_SYNC_PAIRS", "USD/EUR,EUR/USD,USD/BOB"),
+        data_http_timeout_seconds=_env_float("NEXO_DATA_TIMEOUT_SECONDS", 20.0),
+        data_http_retries=_env_int("NEXO_DATA_RETRIES", 2),
+        data_backoff_seconds=_env_float("NEXO_DATA_BACKOFF_SECONDS", 0.6),
+        data_fx_latest_ttl_minutes=_env_int("NEXO_DATA_FX_LATEST_TTL_MINUTES", 60),
+        data_fx_history_ttl_hours=_env_int("NEXO_DATA_FX_HISTORY_TTL_HOURS", 20),
+        data_prices_ttl_hours=_env_int("NEXO_DATA_PRICES_TTL_HOURS", 20),
+        data_stale_after_days=_env_int("NEXO_DATA_STALE_AFTER_DAYS", 5),
+        data_fx_divergence_threshold=_env_float("NEXO_DATA_FX_DIVERGENCE_THRESHOLD", 0.03),
+        data_sync_interval_minutes=_env_int("NEXO_DATA_SYNC_INTERVAL_MINUTES", 0),
+        data_max_sync_per_run=_env_int("NEXO_DATA_MAX_SYNC_PER_RUN", 25),
     )

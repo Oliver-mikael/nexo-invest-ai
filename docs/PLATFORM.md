@@ -50,6 +50,43 @@ markets ──► instruments ──► quotes / fx_rates
 - El OCR local devuelve campos propuestos y `review_required`; el documento solo se vincula
   a un movimiento tras una confirmación humana con correcciones.
 
+## 1.2 Datos de mercado automáticos (fase 5)
+
+```
+Frankfurter v2 ─┐
+ExchangeRate-API ┼──► DataSyncService ──► fx_rates / quotes / fundamentals
+StockAnalysis ──┤        │  (runs + caché + anomalías)
+SEC EDGAR ──────┘        │
+                         ▼
+                  DataSyncRunner (cola ligera en proceso)
+                    ├── enqueue anti-duplicados por task_key
+                    ├── recuperación de runs interrumpidos
+                    └── planificador opcional (apagado por defecto)
+```
+
+- **Adaptadores modulares** en `app/services/data/providers/`, uno por categoría y
+  proveedor, con licencia, límites y `supports_history` declarados. Todo el tráfico pasa
+  por `HttpFetcher` (timeout, reintentos ≤2 con backoff, traducción de errores tipados,
+  recuento de peticiones por run).
+- **`DataSyncService`** persiste con procedencia completa: fecha del dato ≠ fecha de
+  consulta, calidad `close`/`reported` y naturaleza `official`/`reference`/`market`.
+  Un dato nuevo nunca sobrescribe uno válido sin `force`; las divergencias entre fuentes
+  (>3 %) se registran sin unificar las tasas.
+- **Caché con TTL** (`data_cache`): la segunda sincronización idéntica responde `cached`
+  sin petición externa. Límites y reintentos evitan el bloqueo de los proveedores
+  (ER-API recomienda 1 petición/24 h; la caché lo garantiza).
+- **`DataSyncRunner`** reutiliza el patrón ya probado por `JobRunner` (hilos + estado en
+  base de datos + recuperación) sin añadir Redis/Celery y sin acoplar datos de mercado a
+  la cola de investigación. Ver DECISIONS #57.
+- **API `/api/v1/data/*`**: estado (`status`, `providers`, `runs`, `fx-rates`),
+  sincronización en segundo plano por defecto (`sync/fx|prices|fundamentals`) y
+  activación de auto-actualización por instrumento. Sesión obligatoria y límite por ruta;
+  ninguna respuesta incluye claves de proveedor.
+- **Interfaz `/datos`**: proveedores con su estado real, frescura por par e instrumento,
+  ejecuciones con anomalías y errores, botones de sincronización, automatización y el
+  aviso honesto de «sin proveedor de noticias». La cartera real muestra la calidad de cada
+  cierre (`cierre`, `retrasado`, `histórico`, `estimado`) junto a fuente y fecha.
+
 ## 2. Flujo de una investigación
 
 ```
@@ -109,6 +146,9 @@ SEC EDGAR ──► ProvenanceRegistry ──► FinancialMetrics ──► DCF 
 - El ejecutor es un `ThreadPoolExecutor` del proceso. **Límite conocido:** con
   varias réplicas hace falta una cola compartida (Redis/RQ, Celery, Dramatiq).
   El diseño ya separa `JobRunner` de la API para poder cambiarlo.
+- La recopilación de datos usa su propio runner en el mismo proceso (`DataSyncRunner`,
+  `provider_runs`): recuperación al arrancar, `task_key` anti-duplicados y planificador
+  apagado por defecto. Comparte el límite anterior para varias réplicas (fase 6).
 
 ## 5. API v1
 

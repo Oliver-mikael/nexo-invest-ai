@@ -5,6 +5,35 @@
 Evolución sobre la plataforma 1.0 sin reescribir el motor financiero ni la cartera simulada.
 La rama es `feat/multi-market-real-money`; `main` y el PR #2 no se han tocado.
 
+### Datos financieros automáticos (fase 5 · 2026-11-02)
+
+- **Divisas integradas con dos fuentes reales:** Frankfurter v2 como primaria (sin clave,
+  228 monedas, BOB vía BCBO) y ExchangeRate-API como segunda opinión; divergencias >3 %
+  registradas como anomalía sin unificar las tasas. Calidad `close`, fecha del dato y
+  `kind` (oficial/referencia/mercado) en `fx_rates`.
+- **Precios históricos reales** con StockAnalysis (US/DE/ES/GB verificados en vivo):
+  cierres diarios con columna ajustada guardada aparte (`quotes.adjusted`, fuente
+  `:adj`); mercados no soportados fallan con error explícito.
+- **Fundamentales de SEC EDGAR** (`companyfacts`) para emisores con CIK: solo métricas
+  reportadas (ingresos, beneficio, EPS diluido, caja, deuda LP, acciones); EBITDA y FCF
+  quedan en `null` en lugar de presentarse calculados como reportados.
+- **Noticias/eventos sin proveedor con licencia clara:** `configured: false` y
+  `GET /data/news` con `available: false`; `news_items` preparada en el esquema.
+- **Arquitectura:** paquete `app/services/data/` con adaptadores modulares, `HttpFetcher`
+  (timeout, reintentos acotados, backoff, errores tipados), `DataSyncService` (runs,
+  caché con TTL, no sobrescritura sin `force`, deduplicación por restricción única) y
+  `DataSyncRunner` (cola ligera con recuperación, anti-duplicados y planificador apagado
+  por defecto). Sin Redis/Celery (DECISIONS #57).
+- **API:** `GET /data/status|providers|runs|fx-rates|fundamentals|news`,
+  `POST /data/sync/fx|prices|fundamentals` (en segundo plano por defecto) y
+  `POST /data/instruments/{uid}/auto-sync`.
+- **Interfaz:** página `/datos` (proveedores, frescura, ejecuciones, automatización,
+  noticias) e indicador de `quote_quality` en las posiciones de la cartera real.
+- **Migración** `2b7d5f3a91e4`: tablas `provider_runs`, `data_cache`, `fundamentals`,
+  `news_items` y columnas `quotes.adjusted`, `fx_rates.kind`, `instruments.auto_sync_prices`.
+- **Pruebas:** 490 recolectadas, 489 aprobadas, 1 omitida (red); 29 nuevas sin red con
+  `httpx.MockTransport`. Integraciones live verificadas el 2026-11-02 (ver VALIDATION.md).
+
 ### Modelo multimercado
 
 - Mercados con código MIC y moneda (`markets`); instrumentos con `uid` estable, símbolo,
@@ -60,8 +89,9 @@ La rama es `feat/multi-market-real-money`; `main` y el PR #2 no se han tocado.
 
 ### Limitaciones declaradas
 
-- Sin proveedor automático de precios, fundamentales, noticias, dividendos, calendarios ni
-  divisas; sin workers, scheduler ni alertas.
+- Proveedores automáticos: divisas, precios históricos (US/DE/ES/GB) y fundamentales (CIK)
+  integrados; **siguen sin proveedor** dividendos, noticias, eventos y calendarios. Planificador
+  de recopilación apagado por defecto; sin cola compartida ni alertas/notificaciones.
 - OCR real no verificado en este workspace por falta del binario; el contenedor lo incluye.
 - Sin APK/Capacitor probado; sin pruebas de navegador; SQLite no es contabilidad exacta de
   almacenamiento (producción: PostgreSQL).

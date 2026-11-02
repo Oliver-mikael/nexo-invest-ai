@@ -88,6 +88,68 @@ biblioteca.
   movimiento exige que el libro restante siga siendo válido.
 - Nunca se guardan contraseñas de brókers ni claves de IA en el frontend.
 
+## Capa de datos de mercado automática (Fase 5)
+
+### Adaptadores (`app/services/data/providers/`)
+
+- Cada proveedor es una clase independiente que devuelve **observaciones normalizadas**
+  (nunca filas ORM) con `Provenance` completo: proveedor, URL, fecha del dato, fecha de
+  consulta, calidad (`close`/`reported`) y naturaleza (`official`/`reference`/`market`).
+- **Frankfurter v2** (`frankfurter.py`) — divisas primarias, sin clave, 228 monedas
+  (BOB vía BCBO), actuales e históricas. `ExchangeRateApiProvider` (`exchangerate.py`)
+  es la segunda fuente, diaria y sin historial: sirve para detectar divergencias.
+- **StockAnalysis** (`stockanalysis.py`) — precios históricos diarios US/DE/ES/GB con
+  mapa mercado→bolsa explícito; cualquier otro mercado lanza `ProviderDataError`.
+- **SEC EDGAR** (`sec_fundamentals.py`) — `companyfacts` para emisores con CIK; extrae
+  solo métricas XBRL publicadas (ingresos, beneficio neto, EPS diluido, efectivo, deuda LP,
+  acciones) en ventanas anual (340-400 d) y trimestral (80-100 d).
+- `base.py` normaliza `Decimal` y fechas sin pasar por `float`, define calidades, kinds y
+  errores tipados (`ProviderUnavailable`, `ProviderTimeout`, `ProviderRateLimited`,
+  `ProviderDataError`, `ProviderNotConfigured`), todos hijos de `DataError`.
+- `http.py` (`HttpFetcher`) centraliza timeout, reintentos acotados, backoff exponencial
+  con `sleep` inyectable y el recuento de peticiones para registrarlo en cada run.
+
+### Servicio de sincronización (`sync.py`)
+
+- `DataSyncService.sync_fx / sync_prices / sync_fundamentals`: traen datos, los validan
+  y los persisten. Cada ejecución crea un `ProviderRun` con estado, peticiones, registros
+  leídos/guardados/descartados y anomalías.
+- **Nunca sobrescribe un dato válido sin `force`**: un valor distinto para la misma
+  identidad (par/fecha/fuente o instrumento/fecha/fuente) queda como anomalía
+  `..._sin_force`. Con `force` se sustituye y también se registra.
+- Validaciones: fechas futuras descartadas, saltos diarios >35 % marcados (no borrados),
+  datos obsoletos (`data_stale_after_days`) marcados `stale`, divergencias FX >3 % entre
+  fuentes registradas con ambos valores.
+- Caché `DataCache` por clave con TTL (60 min divisas actuales, 20 h históricos/precios):
+  una segunda sincronización idéntica responde `cached` sin tocar red.
+- Deduplicación: misma identidad → mismo valor o anomalía, jamás filas duplicadas
+  (respaldada por restricciones únicas de las tablas).
+
+### Ejecución y estado
+
+- `runner.py` (`DataSyncRunner`) — cola ligera en proceso con estado persistente:
+  `enqueue` anti-duplicados por `task_key` con estado activo, `recover_interrupted` que
+  reencola o marca `failed` según `job_max_attempts`, y planificador opcional
+  (`data_sync_interval_minutes`, **apagado por defecto**) que programa los pares de
+  `data_sync_pairs` y los instrumentos con `auto_sync_prices`.
+- `status.py` — `provider_catalog`, `latest_runs`, `pair_status`, `price_status` y
+  `data_status`: la interfaz refleja el estado real, sin indicadores decorativos.
+- API `app/api/v1/marketdata.py` — `GET /data/status|providers|runs|fx-rates|fundamentals|news`,
+  `POST /data/sync/fx|prices|fundamentals` (en segundo plano por defecto) y
+  `POST /data/instruments/{uid}/auto-sync`, todo con sesión y límite de peticiones.
+- Interfaz: página `/datos` (proveedores, frescura, ejecuciones, automatización, noticias)
+  e indicador de calidad (`quote_quality`) en cada posición de la cartera real.
+
+### Modelo de datos nuevo
+
+- `provider_runs` (qué, cuándo, con qué resultado), `data_cache` (TTL por clave),
+  `fundamentals` (periodo + métricas reportadas + procedencia) y `news_items` (preparada,
+  sin datos hasta que haya proveedor con licencia).
+- Columnas nuevas: `quotes.adjusted` (distingue cierre ajustado), `fx_rates.kind`
+  (oficial/referencia/mercado) e `instruments.auto_sync_prices`. Datos de proveedor con
+  `user_id` nulo; las cotizaciones/tipos manuales siguen siendo privados de cada usuario.
+- Migración `2b7d5f3a91e4` sobre `1a0119241c07`.
+
 ## Capas actuales del motor
 
 - `src/nexo_invest/core/units.py` — tipos básicos: `Money` (con `Scale` enum y conversión
