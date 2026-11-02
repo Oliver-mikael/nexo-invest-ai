@@ -40,6 +40,9 @@ PROFILE_ROLES: Dict[str, Tuple[str, ...]] = {
     "standard": (
         "business_researcher",
         "financial_analyst",
+        "technical_analyst",
+        "macro_analyst",
+        "risk_analyst",
         "contrarian_analyst",
         "evidence_auditor",
         "coordinator",
@@ -47,17 +50,23 @@ PROFILE_ROLES: Dict[str, Tuple[str, ...]] = {
     "deep": (
         "business_researcher",
         "financial_analyst",
+        "technical_analyst",
+        "macro_analyst",
+        "risk_analyst",
         "contrarian_analyst",
         "evidence_auditor",
         "coordinator",
     ),
 }
 
-STRONG_ROLES = {"coordinator", "financial_analyst"}
+STRONG_ROLES = {"coordinator", "financial_analyst", "risk_analyst"}
 
 ROLE_MAX_TOKENS: Dict[str, int] = {
     "business_researcher": 900,
     "financial_analyst": 900,
+    "technical_analyst": 700,
+    "macro_analyst": 700,
+    "risk_analyst": 800,
     "contrarian_analyst": 800,
     "evidence_auditor": 700,
     "coordinator": 900,
@@ -66,6 +75,9 @@ ROLE_MAX_TOKENS: Dict[str, int] = {
 ROLE_TIMEOUTS: Dict[str, float] = {
     "business_researcher": 45.0,
     "financial_analyst": 45.0,
+    "technical_analyst": 40.0,
+    "macro_analyst": 40.0,
+    "risk_analyst": 45.0,
     "contrarian_analyst": 45.0,
     "evidence_auditor": 40.0,
     "coordinator": 50.0,
@@ -273,6 +285,7 @@ class AIOrchestrator:
         preferred_provider: str = "",
         on_step: Optional[Callable[[RoleResult], None]] = None,
         should_cancel: Optional[Callable[[], bool]] = None,
+        platform_data: str = "",
     ) -> OrchestrationResult:
         profile = profile if profile in PROFILE_ROLES else "standard"
         result = OrchestrationResult(profile=profile, budget_usd=budget_usd)
@@ -292,6 +305,10 @@ class AIOrchestrator:
             provenance=provenance,
             previous=previous,
         )
+        if platform_data:
+            # Datos de la plataforma (indicadores sobre cierres con procedencia);
+            # se entregan como bloque aparte, no como cifras del expediente SEC.
+            context = f"{context}\n\nDATA_PLATFORM:\n{platform_data}"
         result.context_chars = len(context)
 
         for role in roles:

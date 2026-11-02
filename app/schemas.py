@@ -477,5 +477,61 @@ class AlertRuleUpdate(BaseModel):
     active: Optional[bool] = None
 
 
+# -- Fase 7: watchlist y tesis versionadas ------------------------------------
+
+ValidConditionType = Literal["price_above", "price_below", "text"]
+
+
+class InvalidationCondition(BaseModel):
+    type: ValidConditionType
+    price: Optional[Decimal] = None
+    text: Optional[str] = Field(default=None, max_length=400)
+    note: Optional[str] = Field(default=None, max_length=300)
+
+
+class WatchlistCreate(BaseModel):
+    instrument_uid: str = Field(min_length=6, max_length=36)
+    note: str = Field(default="", max_length=255)
+
+
+class ThesisCreate(BaseModel):
+    instrument_uid: str = Field(min_length=6, max_length=36)
+    horizon: Literal["short", "medium", "long"]
+    title: str = Field(min_length=3, max_length=160)
+    hypothesis: str = Field(min_length=10, max_length=4000)
+    invalidation_conditions: List[InvalidationCondition] = Field(default_factory=list, max_length=60)
+    uncertainty_level: Literal["low", "medium", "high"] = "medium"
+    missing_info: Optional[List[str]] = Field(default=None, max_length=20)
+    entry_target: Optional[Decimal] = Field(default=None, gt=0)
+    exit_target: Optional[Decimal] = Field(default=None, gt=0)
+
+
+class ThesisVersionCreate(BaseModel):
+    hypothesis: Optional[str] = Field(default=None, min_length=10, max_length=4000)
+    invalidation_conditions: Optional[List[InvalidationCondition]] = Field(default=None, max_length=60)
+    uncertainty_level: Optional[Literal["low", "medium", "high"]] = None
+    note: str = Field(default="", max_length=600)
+
+
+class ThesisEventCreate(BaseModel):
+    # `validated`/`invalidated` se admiten en el tipo solo para que la API devuelva
+    # el error de semántica del servicio (400) y no un 422 genérico: su estado
+    # solo cambia por PATCH de estado.
+    kind: Literal["fundamental_change", "price_signal", "thesis_revision", "decision", "risk_new", "validated", "invalidated"]
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ThesisStatusUpdate(BaseModel):
+    status: Literal["open", "under_review", "validated", "invalidated", "closed"]
+    note: str = Field(default="", max_length=600)
+
+
+class ThesisPatch(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=3, max_length=160)
+    missing_info: Optional[List[str]] = Field(default=None, max_length=20)
+    entry_target: Optional[Decimal] = Field(default=None, gt=0)
+    exit_target: Optional[Decimal] = Field(default=None, gt=0)
+
+
 class AutoSyncToggle(BaseModel):
     enabled: bool

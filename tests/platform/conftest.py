@@ -145,6 +145,52 @@ def role_responder(messages: Sequence[Message], model: str) -> str:
                 "sources": [],
             }
         )
+    if "ANALISTA DE RIESGOS" in user:
+        return json.dumps(
+            {
+                "summary": "Riesgos dominantes identificados en el expediente",
+                "sections": {
+                    "key_risks": ["Concentración de ingresos y sensibilidad al descuento"],
+                    "uncertainty_assessment": "Alta: la valoración depende de supuestos de crecimiento.",
+                    "scenario_impacts": "Un descuento 2 puntos mayor bloquea el margen de seguridad.",
+                },
+                "claims": [
+                    {
+                        "text": "El escenario de descuento mayor elimina el margen",
+                        "kind": "interpretation",
+                        "evidence_ids": ["valuation:base"],
+                    }
+                ],
+                "sources": [],
+            }
+        )
+    if "ANALISTA TÉCNICO" in user:
+        return json.dumps(
+            {
+                "summary": "Tendencia descrita solo con los datos de la plataforma",
+                "sections": {
+                    "trend": "Serie del expediente DATA_PLATFORM: tendencia no declarada como previsión.",
+                    "series_behavior": "Comportamiento observado indicado por los indicadores entregados.",
+                    "caveats": "Los cierres tienen procedencia; el análisis no es una predicción.",
+                },
+                "claims": [],
+                "sources": [],
+            }
+        )
+    if "ANALISTA MACRO" in user:
+        return json.dumps(
+            {
+                "summary": "Marco macro sin cifras no verificadas",
+                "sections": {
+                    "environment": "Entorno descrito solo con lo que el expediente permite.",
+                    "currency_exposure": "Moneda de presentación declarada en la identificación.",
+                    "rate_sensitivity": "Sensibilidad a tipos comentada de forma cualitativa.",
+                    "limitations": "Sin datos macro verificados en el expediente: no disponible."
+                },
+                "claims": [],
+                "sources": [],
+            }
+        )
     if "ANALISTA FINANCIERO" in user:
         return json.dumps(
             {

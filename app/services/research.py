@@ -1,8 +1,9 @@
 """Pipeline de investigación: motor + orquestador + auditoría + informe.
 
-El informe final tiene siempre las mismas 18 secciones, exista o no IA. En modo
+El informe final tiene siempre las mismas 20 secciones, exista o no IA. En modo
 básico las secciones cualitativas dicen «información no disponible» en lugar de
-rellenarse con texto inventado; las cuantitativas salen del motor financiero.
+rellenarse con texto inventado; las cuantitativas salen del motor financiero y
+la sección técnica usa las series de precios de la plataforma cuando hay.
 
 Cada sección declara su base: hecho verificado, dato de fuente, interpretación de
 IA, supuesto, estimación o información no disponible.
@@ -32,6 +33,8 @@ SECTION_TITLES: Tuple[Tuple[str, str], ...] = (
     ("debt", "Deuda"),
     ("valuation", "Valoración"),
     ("scenarios", "Escenarios"),
+    ("technical", "Análisis técnico de precios"),
+    ("macro", "Contexto macroeconómico"),
     ("risks", "Riesgos"),
     ("catalysts", "Catalizadores"),
     ("thesis", "Tesis de inversión"),
@@ -167,6 +170,9 @@ def build_sections(
     contrarian = outputs.get("contrarian_analyst")
     auditor = outputs.get("evidence_auditor")
     coordinator = outputs.get("coordinator")
+    technical_analyst = outputs.get("technical_analyst")
+    macro_analyst = outputs.get("macro_analyst")
+    risk_analyst = outputs.get("risk_analyst")
 
     sections: List[Section] = []
 
@@ -405,19 +411,51 @@ def build_sections(
             )
         )
 
+    # Secciones técnica y macro: solo con interpretación de IA sobre los datos
+    # de plataforma (DATA_PLATFORM); sin IA quedan como no disponible, sin
+    # números parciales disfrazados de análisis.
+    technical_text = _role_section(technical_analyst, ["trend", "series_behavior", "caveats"])
+    macro_text = _role_section(macro_analyst, ["environment", "currency_exposure", "rate_sensitivity", "limitations"])
+    sections.append(
+        Section(
+            id="technical",
+            title=SECTION_TITLES[12][1],
+            basis="ai" if technical_text else "unavailable",
+            paragraphs=[technical_text] if technical_text else [],
+            bullets=[] if technical_text else [
+                "Análisis de precios de la plataforma no disponible sin IA o sin serie suficiente."
+            ],
+        )
+    )
+    sections.append(
+        Section(
+            id="macro",
+            title=SECTION_TITLES[13][1],
+            basis="ai" if macro_text else "unavailable",
+            paragraphs=[macro_text] if macro_text else [],
+            bullets=[] if macro_text else [
+                "Contexto macroeconómico no disponible: el expediente no incluye datos "
+                "macro verificados y no se inventan."
+            ],
+        )
+    )
+
     risks_text = _role_section(contrarian, ["ignored_risks", "red_flags", "counter_thesis"])
+    risks_text_extra = _role_section(risk_analyst, ["key_risks", "uncertainty_assessment", "scenario_impacts"])
     auditor_text = _role_section(auditor, ["issues", "contradictions", "missing_data"])
     risk_bullets = list(payload["risks"].get("already_invalidated", []))
     risk_bullets += [f"{cond}" for cond in payload["risks"].get("invalidation_conditions", [])]
     risk_paragraphs = []
     if risks_text:
         risk_paragraphs.append(risks_text)
+    if risks_text_extra:
+        risk_paragraphs.append(f"Matiz de riesgos estructural:\n{risks_text_extra}")
     if auditor_text:
         risk_paragraphs.append(f"Auditoría de evidencia:\n{auditor_text}")
     sections.append(
         Section(
             id="risks",
-            title=SECTION_TITLES[12][1],
+            title=SECTION_TITLES[14][1],
             basis="ai" if risk_paragraphs else "fact",
             paragraphs=risk_paragraphs,
             bullets=risk_bullets[:12],
@@ -428,7 +466,7 @@ def build_sections(
     sections.append(
         Section(
             id="catalysts",
-            title=SECTION_TITLES[13][1],
+            title=SECTION_TITLES[15][1],
             basis="ai" if catalysts_text else "unavailable",
             paragraphs=[catalysts_text] if catalysts_text else [],
             bullets=[] if catalysts_text else ["Catalizadores no disponibles sin fuentes externas."],
@@ -439,7 +477,7 @@ def build_sections(
     sections.append(
         Section(
             id="thesis",
-            title=SECTION_TITLES[14][1],
+            title=SECTION_TITLES[16][1],
             basis="ai" if coordinator and thesis_text else "unavailable",
             paragraphs=[thesis_text] if thesis_text else [],
             bullets=[] if thesis_text else ["No hay tesis: el coordinador no se ejecutó."],
@@ -452,7 +490,7 @@ def build_sections(
     sections.append(
         Section(
             id="contrary",
-            title=SECTION_TITLES[15][1],
+            title=SECTION_TITLES[17][1],
             basis="ai" if contrary_text else "unavailable",
             paragraphs=[contrary_text] if contrary_text else [],
             bullets=[] if contrary_text else ["Argumentos contrarios no generados."],
@@ -467,7 +505,7 @@ def build_sections(
     sections.append(
         Section(
             id="invalidation",
-            title=SECTION_TITLES[16][1],
+            title=SECTION_TITLES[18][1],
             basis="assumption",
             paragraphs=[invalidation_text] if invalidation_text else [],
             bullets=invalidation_bullets,
@@ -483,7 +521,7 @@ def build_sections(
     sections.append(
         Section(
             id="conclusion",
-            title=SECTION_TITLES[17][1],
+            title=SECTION_TITLES[19][1],
             basis="ai" if conclusion_text else "fact",
             paragraphs=[conclusion_text or engine_conclusion],
             bullets=[

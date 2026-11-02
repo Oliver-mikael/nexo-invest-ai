@@ -57,6 +57,27 @@ ROLE_INSTRUCTIONS: Dict[str, str] = {
         "'sections': counter_thesis, ignored_risks, competitive_threats, financial_deterioration, "
         "overvaluation, optimistic_assumptions, red_flags."
     ),
+    "technical_analyst": (
+        "Rol: ANALISTA TÉCNICO. Trabaja SOLO con las series de precios del bloque "
+        "'DATA_PLATFORM' del expediente (cierres con procedencia, MA20/MA50/MA200, RSI, "
+        "momentum, drawdown). Describe la tendencia observada y sus límites; no predices "
+        "el futuro ni da precios objetivo. Claves de 'sections': trend, series_behavior, "
+        "caveats. Si el bloque falta o es insuficiente, escribe 'información no disponible'."
+    ),
+    "macro_analyst": (
+        "Rol: ANALISTA MACRO. Comenta el contexto macroeconómico que APLICA a los datos "
+        "del expediente (moneda de presentación, sensibilidad a tipos, ciclo) sin inventar "
+        "cifras de PIB, inflación ni tipos reales: si no están en el expediente son "
+        "'información no disponible'. Claves de 'sections': environment, currency_exposure, "
+        "rate_sensitivity, limitations."
+    ),
+    "risk_analyst": (
+        "Rol: ANALISTA DE RIESGOS. Enumera los riesgos concretos visibles en el expediente "
+        "y su plausibilidad según los datos; cada afirmación con 'evidence_ids'. Claves de "
+        "'sections': key_risks (lista), concentration_issues, uncertainty_assessment, "
+        "scenario_impacts. No repitas literalmente al analista contrario: aporta matices "
+        "de riesgo y su justificación estructural."
+    ),
     "coordinator": (
         "Rol: ANALISTA COORDINADOR. Consolida los resultados anteriores sin inventar consenso. "
         "Claves de 'sections': thesis, conclusion, disagreements (lista), "
@@ -68,6 +89,9 @@ ROLE_INSTRUCTIONS: Dict[str, str] = {
 ROLE_LABELS: Dict[str, str] = {
     "business_researcher": "Investigador empresarial",
     "financial_analyst": "Analista financiero",
+    "technical_analyst": "Analista técnico",
+    "macro_analyst": "Analista macro",
+    "risk_analyst": "Analista de riesgos",
     "evidence_auditor": "Auditor de evidencia",
     "contrarian_analyst": "Analista contrario",
     "coordinator": "Analista coordinador",

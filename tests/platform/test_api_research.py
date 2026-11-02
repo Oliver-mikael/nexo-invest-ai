@@ -60,7 +60,8 @@ def test_research_with_fake_ai_and_audit(client):
     plan = client.get("/api/v1/research/plan?profile=standard", headers=headers)
     assert plan.status_code == 200
     assert plan.json()["ai_available"] is True
-    assert len(plan.json()["plan"]["roles"]) == 5
+    # Fase 7: investigador, financiero, técnico, macro, riesgos, contrario, auditor y coordinador.
+    assert len(plan.json()["plan"]["roles"]) == 8
 
     created = client.post(
         "/api/v1/research",
@@ -78,6 +79,9 @@ def test_research_with_fake_ai_and_audit(client):
     assert [step["role"] for step in steps] == [
         "business_researcher",
         "financial_analyst",
+        "technical_analyst",
+        "macro_analyst",
+        "risk_analyst",
         "contrarian_analyst",
         "evidence_auditor",
         "coordinator",

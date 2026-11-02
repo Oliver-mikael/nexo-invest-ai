@@ -711,3 +711,96 @@ class SystemState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+# ---------------------------------------------------------------------------
+# Fase 7: investigación con tesis versionadas. La hipótesis inicial se conserva:
+# cada cambio es una versión nueva, nunca una reescritura silenciosa.
+# ---------------------------------------------------------------------------
+
+
+class WatchlistItem(Base):
+    """Instrumento seguido por un usuario (privado, como toda preferencia)."""
+
+    __tablename__ = "watchlist_items"
+    __table_args__ = (UniqueConstraint("user_id", "instrument_id", name="uq_watchlist_user_instrument"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InvestmentThesis(Base):
+    """Tesis de inversión versionada sobre un instrumento.
+
+    `horizon` declara el horizonte declarado (short/medium/long); `status`
+    evoluciona open → under_review → (validada | invalidated | closed).
+    El motor registra indicios en `thesis_events`; solo el usuario confirma un
+    cambio de estado (la máquina nunca invalida por su cuenta).
+    """
+
+    __tablename__ = "investment_theses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    horizon: Mapped[str] = mapped_column(String(8), default="medium")  # short|medium|long
+    title: Mapped[str] = mapped_column(String(160), default="")
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    invalidation_conditions: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    uncertainty_level: Mapped[str] = mapped_column(String(12), default="medium")  # low|medium|high
+    missing_info: Mapped[List[str]] = mapped_column(JSON, default=list)
+    # open | under_review | validated | invalidated | closed
+    # Como máximo una tesis abierta por (usuario, instrumento): lo impone el
+    # servicio antes de crear, no una restricción de la base.
+    status: Mapped[str] = mapped_column(String(16), default="open", index=True)
+    entry_target: Mapped[Optional[Any]] = mapped_column(PRICE, nullable=True)
+    exit_target: Mapped[Optional[Any]] = mapped_column(PRICE, nullable=True)
+    version_count: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ThesisVersion(Base):
+    """Versión inmutable de la tesis: qué se pensaba y por qué entonces."""
+
+    __tablename__ = "thesis_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    thesis_id: Mapped[int] = mapped_column(
+        ForeignKey("investment_theses.id", ondelete="CASCADE"), index=True
+    )
+    number: Mapped[int] = mapped_column(Integer, default=1)
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    invalidation_conditions: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    uncertainty_level: Mapped[str] = mapped_column(String(12), default="medium")
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ThesisEvent(Base):
+    """Suceso relevante de la tesis: fundamental, señal de precio, decisión…
+
+    `kind` incluye `fundamental_change`, `price_signal`, `thesis_revision`,
+    `decision`, `risk_new`. Creadas por el motor (deduplicadas) o por el usuario.
+    """
+
+    __tablename__ = "thesis_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    thesis_id: Mapped[int] = mapped_column(
+        ForeignKey("investment_theses.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    detected_by: Mapped[str] = mapped_column(String(16), default="user")  # engine|user
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

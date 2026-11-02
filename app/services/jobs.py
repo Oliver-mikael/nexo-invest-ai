@@ -30,6 +30,8 @@ from app.db import get_session_factory, session_scope
 from app.models import (
     AuditEvent,
     Company,
+    Instrument,
+    Quote,
     Report,
     ResearchJob,
     ResearchStep,
@@ -264,6 +266,7 @@ class JobRunner:
         orchestration = None
         if chosen_profile != "basic":
             self._stage(job_id, "agentes")
+            platform_data = self._platform_data(ticker)
 
             def on_step(role: RoleResult) -> None:
                 with session_scope() as session:
@@ -299,6 +302,7 @@ class JobRunner:
                 preferred_provider=preferred_provider,
                 on_step=on_step,
                 should_cancel=lambda: self._should_stop(job_id, started),
+                platform_data=platform_data,
             )
 
         self._stage(job_id, "auditoría")
@@ -360,6 +364,54 @@ class JobRunner:
                     },
                 )
             )
+
+    def _platform_data(self, ticker: str) -> str:
+        """Indicadores de la plataforma sobre cierres con procedencia (sin IA)."""
+        import json as _json
+
+        from app.services.technical import PricePoint, analyze
+
+        symbol = ticker.upper()
+        with session_scope() as session:
+            instruments = (
+                session.execute(
+                    select(Instrument).where(
+                        Instrument.symbol == symbol, Instrument.status == "active"
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            best_rows: tuple = ()
+            for instrument in instruments:
+                rows = (
+                    session.execute(
+                        select(Quote)
+                        .where(
+                            Quote.instrument_id == instrument.id,
+                            Quote.user_id.is_(None),
+                            Quote.adjusted.is_(False),
+                        )
+                        .order_by(Quote.as_of.desc())
+                        .limit(400)
+                    )
+                    .scalars()
+                    .all()
+                )
+                if len(rows) > len(best_rows):
+                    best_rows = rows
+        if len(best_rows) < 23:
+            return ""
+        points = [PricePoint(quote.as_of, quote.price) for quote in reversed(best_rows)]
+        summary = analyze(points).as_dict()
+        payload = {
+            "technical": summary,
+            "note": (
+                "Indicadores calculados por la plataforma sobre cierres con "
+                "procedencia; no son cifras del expediente SEC ni precios objetivo."
+            ),
+        }
+        return _json.dumps(payload, ensure_ascii=False, default=str)
 
     def _should_stop(self, job_id: int, started: datetime) -> bool:
         elapsed = (datetime.now(timezone.utc) - started).total_seconds()
