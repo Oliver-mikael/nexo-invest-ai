@@ -787,6 +787,41 @@ class ThesisVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BacktestRun(Base):
+    """Resultados de un backtest determinista sobre datos con procedencia.
+
+    Se guardan métricas y curva ya calculadas; el backtest no re-ejecuta nada
+    al leerse. Las advertencias (costes, divisas, ajustes) viajan en `warnings`
+    y nunca se ocultan. Sin look-ahead: las señales se ejecutan en el cierre
+    del día siguiente al que se calculan.
+    """
+
+    __tablename__ = "backtest_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), index=True
+    )
+    benchmark_instrument_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instruments.id", ondelete="SET NULL"), nullable=True
+    )
+    strategy: Mapped[str] = mapped_column(String(24))
+    base_currency: Mapped[str] = mapped_column(String(3), default="USD")
+    params: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    period_start: Mapped[Any] = mapped_column(Date)
+    period_end: Mapped[Any] = mapped_column(Date)
+    points: Mapped[int] = mapped_column(Integer, default=0)  # cierres observados
+    trades: Mapped[int] = mapped_column(Integer, default=0)
+    metrics: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    walk_forward: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    curve: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    warnings: Mapped[List[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 class ThesisEvent(Base):
     """Suceso relevante de la tesis: fundamental, señal de precio, decisión…
 

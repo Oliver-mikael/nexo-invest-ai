@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     alerts,
     auth,
+    backtests,
     companies,
     documents,
     imports,
@@ -28,6 +29,7 @@ api_router.include_router(companies.router)
 api_router.include_router(markets.router)
 api_router.include_router(marketdata.router)
 api_router.include_router(alerts.router)
+api_router.include_router(backtests.router)
 api_router.include_router(theses.router)
 api_router.include_router(theses.board_router)
 api_router.include_router(real.router)
