@@ -161,6 +161,11 @@ class Settings:
     data_sync_interval_minutes: int = 0
     data_max_sync_per_run: int = 25
 
+    # Fase 6: chequeo programado de alertas. 0 = solo se revisan al completar
+    # sincronizaciones de datos o a petición (API/UI). No genera tráfico externo:
+    # evalúa reglas sobre los datos ya almacenados.
+    alert_check_interval_minutes: int = 0
+
     @property
     def database_dsn(self) -> str:
         if self.database_url:
@@ -312,4 +317,5 @@ def load_settings() -> Settings:
         data_fx_divergence_threshold=_env_float("NEXO_DATA_FX_DIVERGENCE_THRESHOLD", 0.03),
         data_sync_interval_minutes=_env_int("NEXO_DATA_SYNC_INTERVAL_MINUTES", 0),
         data_max_sync_per_run=_env_int("NEXO_DATA_MAX_SYNC_PER_RUN", 25),
+        alert_check_interval_minutes=_env_int("NEXO_ALERT_CHECK_INTERVAL_MINUTES", 0),
     )

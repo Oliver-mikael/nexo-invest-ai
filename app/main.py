@@ -32,6 +32,8 @@ from app.services.engine import EngineService
 from app.services.jobs import JobRunner
 from app.services.prices import PriceProvider, default_provider
 from app.services.reference import seed_markets
+from app.services.scheduler import SchedulerService
+from app.services.alerts import AlertEngine
 
 logger = logging.getLogger("nexo.app")
 
@@ -80,19 +82,27 @@ def create_app(
         app.state.data = data_service
         data_runner = DataSyncRunner(resolved, data_service)
         app.state.data_jobs = data_runner
+        # Fase 6: motor de alertas y planificador persistente (estado en la base).
+        alert_engine = AlertEngine(resolved)
+        app.state.alerts = alert_engine
+        scheduler = SchedulerService(resolved)
+        app.state.scheduler = scheduler
         if start_workers:
             runner.start()
             data_runner.start()
+            scheduler.start()
         logger.info(
-            "Nexo Invest AI %s iniciado (entorno=%s, ia=%s, planificador_datos=%s)",
+            "Nexo Invest AI %s iniciado (entorno=%s, ia=%s, planificador_datos=%s, alertas=%s)",
             resolved.app_version,
             resolved.environment,
             bool(app.state.orchestrator.available),
             resolved.data_sync_interval_minutes,
+            scheduler.interval_minutes,
         )
         try:
             yield
         finally:
+            scheduler.shutdown()
             data_runner.shutdown()
             data_service.close()
             runner.shutdown()

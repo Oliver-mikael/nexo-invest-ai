@@ -458,5 +458,24 @@ class DataSyncFundamentalsRequest(BaseModel):
     force: bool = False
 
 
+# -- Fase 6: alertas declarativas ---------------------------------------------
+
+
+class AlertRuleCreate(BaseModel):
+    kind: str = Field(min_length=2, max_length=32)
+    # Identificación por `uid` estable, no por ticker.
+    instrument_uid: Optional[str] = Field(default=None, min_length=6, max_length=36)
+    threshold: Optional[Decimal] = None
+    # Ventana para `price_change_pct`; para el resto no se aplica.
+    window_days: Optional[int] = Field(default=None, ge=1, le=365)
+    active: bool = True
+
+
+class AlertRuleUpdate(BaseModel):
+    threshold: Optional[Decimal] = None
+    window_days: Optional[int] = Field(default=None, ge=1, le=365)
+    active: Optional[bool] = None
+
+
 class AutoSyncToggle(BaseModel):
     enabled: bool

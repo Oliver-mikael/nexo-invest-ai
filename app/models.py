@@ -633,3 +633,81 @@ class NewsItem(Base):
     external_id: Mapped[str] = mapped_column(String(191))
     quality: Mapped[str] = mapped_column(String(16), default="metadata")
     retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Fase 6: automatización persistente. Alertas declarativas y estado del
+# planificador. Todo lo que se dispara automáticamente vive aquí: si no está
+# registrado en una fila, no existe para el usuario.
+# ---------------------------------------------------------------------------
+
+
+class AlertRule(Base):
+    """Regla de alerta declarativa de un usuario.
+
+    `kind` determina qué requiere la regla: precio objetivo (una cotización),
+    variación porcentual (cotización + ventana), cambio fundamental (dos
+    periodos), datos desactualizados (la carencia o el instrumento) o
+    concentración (la cartera real). El motor no interpreta nada más: si la
+    regla no tiene datos suficientes, no dispara y nunca inventa la condición.
+    """
+
+    __tablename__ = "alert_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    instrument_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instruments.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    # Umbral según la regla: precio, porcentaje o días. Decimal en la base.
+    threshold: Mapped[Optional[Any]] = mapped_column(RATE, nullable=True)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class AlertEvent(Base):
+    """Alerta disparada por el motor y visible en la interfaz.
+
+    `dedupe_key` evita alertas repetidas por la misma condición (contrainta
+    única en la base, no solo en el proceso). `read_at` la marca leída sin
+    borrarla: el historial es auditable.
+    """
+
+    __tablename__ = "alert_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    rule_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("alert_rules.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    instrument_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("instruments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    severity: Mapped[str] = mapped_column(String(12), default="info")  # info|warning|critical
+    title: Mapped[str] = mapped_column(String(160))
+    detail: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    dedupe_key: Mapped[str] = mapped_column(String(191), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SystemState(Base):
+    """Estado técnico persistente del planificador (latido, última revisión…).
+
+    Clave/valor; las entradas de negocio del usuario nunca viven aquí.
+    """
+
+    __tablename__ = "system_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    value: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

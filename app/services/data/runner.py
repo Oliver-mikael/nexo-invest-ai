@@ -22,6 +22,7 @@ Decisión documentada (ver DECISIONS.md):
 
 from __future__ import annotations
 
+import logging
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -32,10 +33,13 @@ from sqlalchemy import select
 from app.config import Settings, load_settings
 from app.db import session_scope
 from app.models import Instrument, ProviderRun, utcnow
+from app.services.alerts import AlertEngine
 from app.services.data.base import DataError, ProviderNotConfigured
 from app.services.data.sync import DataSyncService, parse_pairs
 
 RequestDict = Dict[str, object]
+
+logger = logging.getLogger("nexo.data")
 
 
 def task_key_for(request: RequestDict) -> str:
@@ -194,6 +198,9 @@ class DataSyncRunner:
             run_ref = run
         try:
             self._dispatch(request or {}, run_ref)
+            # Fase 6: al completarse una recopilación, las reglas de alerta se
+            # revisan sobre los datos recién almacenados (sin tráfico externo).
+            self._evaluate_alerts()
         except (DataError, ProviderNotConfigured) as exc:
             self._fail(run_id, str(exc))
         except Exception as exc:  # noqa: BLE001 — ningún run queda colgado
@@ -232,6 +239,14 @@ class DataSyncRunner:
             )
             return
         raise DataError(f"Tipo de trabajo de datos desconocido: {kind!r}")
+
+    def _evaluate_alerts(self) -> None:
+        """Revisión de alertas tras una recopilación; nunca rompe el run."""
+        try:
+            with session_scope() as session:
+                AlertEngine(self.settings).evaluate_all(session)
+        except Exception as exc:  # noqa: BLE001 — el resultado del run debe seguir
+            logger.info("La revisión de alertas tras el run falló: %s", exc)
 
     def _fail(self, run_id: int, message: str) -> None:
         with session_scope() as session:
