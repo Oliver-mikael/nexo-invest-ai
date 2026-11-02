@@ -15,6 +15,11 @@ import { Portfolio } from "./pages/Portfolio"
 import { RealPortfolio } from "./pages/RealPortfolio"
 import { Data } from "./pages/Data"
 import { Settings } from "./pages/Settings"
+import { Alerts } from "./pages/Alerts"
+import { Watchlist } from "./pages/Watchlist"
+import { Theses } from "./pages/Theses"
+import { Backtests } from "./pages/Backtests"
+import { Jobs } from "./pages/Jobs"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -64,6 +69,11 @@ export default function App() {
             <Route path="/cartera-real" element={<RealPortfolio />} />
             <Route path="/cartera" element={<Portfolio />} />
             <Route path="/datos" element={<Data />} />
+            <Route path="/seguimiento" element={<Watchlist />} />
+            <Route path="/alertas" element={<Alerts />} />
+            <Route path="/tesis" element={<Theses />} />
+            <Route path="/backtests" element={<Backtests />} />
+            <Route path="/tareas" element={<Jobs />} />
             <Route path="/ajustes" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Route>

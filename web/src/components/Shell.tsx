@@ -13,9 +13,21 @@ const NAV = [
   { to: "/ajustes", label: "Ajustes", icon: "⚙" },
 ]
 
+// Fase 9: pantallas de automatización, en un desplegable para no saturar la
+// barra principal; en móvil van planas al menú inferior.
+const AUTOMATION = [
+  { to: "/seguimiento", label: "Seguimiento", icon: "◉" },
+  { to: "/alertas", label: "Alertas", icon: "◔" },
+  { to: "/tesis", label: "Tesis", icon: "✎" },
+  { to: "/backtests", label: "Backtests", icon: "◫" },
+  { to: "/tareas", label: "Tareas", icon: "⟲" },
+]
+
 const MOBILE_NAV = NAV.filter((item) =>
   ["/panel", "/empresas", "/investigacion", "/cartera-real", "/cartera"].includes(item.to),
 )
+
+const MOBILE_MENU = [...NAV, ...AUTOMATION]
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void> }
 
@@ -57,6 +69,7 @@ export function Shell() {
   const { canInstall, install } = useInstallPrompt()
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [autoOpen, setAutoOpen] = useState(false)
 
   useEffect(() => {
     const up = () => setOnline(true)
@@ -71,6 +84,7 @@ export function Shell() {
 
   useEffect(() => {
     setMenuOpen(false)
+    setAutoOpen(false)
   }, [navigate])
 
   return (
@@ -104,6 +118,36 @@ export function Shell() {
                 {item.label}
               </NavLink>
             ))}
+            <div className="relative">
+              <button
+                type="button"
+                className="rounded-md px-3 py-1.5 text-sm text-ink-500 transition-colors hover:bg-ink-900/5 hover:text-ink-900"
+                onClick={() => setAutoOpen((open) => !open)}
+                aria-expanded={autoOpen}
+              >
+                Automatización ▾
+              </button>
+              {autoOpen ? (
+                <div className="absolute left-0 top-full z-40 mt-1 w-48 rounded-lg border border-ink-900/10 bg-white p-1 shadow-lg">
+                  {AUTOMATION.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setAutoOpen(false)}
+                      className={({ isActive }) =>
+                        `block rounded-md px-3 py-2 text-sm no-underline ${
+                          isActive
+                            ? "bg-ink-900 text-paper"
+                            : "text-ink-600 hover:bg-ink-900/5 hover:text-ink-900"
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -145,7 +189,7 @@ export function Shell() {
         {menuOpen ? (
           <nav className="border-t border-ink-900/10 bg-paper px-4 py-3 md:hidden">
             <div className="grid grid-cols-2 gap-2">
-              {NAV.map((item) => (
+              {MOBILE_MENU.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

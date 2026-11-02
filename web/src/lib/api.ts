@@ -822,6 +822,196 @@ export const dataApi = {
   news: () => api<{ items: unknown[]; available: boolean; reason: string }>("/data/news"),
 }
 
+// -- automatización: alertas, seguimiento, tesis, backtests ------------------
+
+export type AlertKindMeta = {
+  kind: string
+  label: string
+  unit: string
+  requires_instrument: boolean
+  requires_threshold: boolean
+  severity: string
+}
+
+export type AlertRule = {
+  id: number
+  kind: string
+  label: string
+  instrument_uid: string | null
+  instrument_symbol: string | null
+  threshold: string | null
+  config: Record<string, unknown>
+  active: boolean
+  created_at: string
+}
+
+export type AlertEvent = {
+  id: number
+  kind: string
+  severity: string
+  title: string
+  detail: Record<string, unknown>
+  instrument_uid: string | null
+  created_at: string
+  read_at: string | null
+}
+
+export type WatchlistItemView = {
+  instrument_uid: string
+  symbol: string
+  name: string
+  currency: string
+  note: string
+  created_at: string
+}
+
+export type OpportunityItem = {
+  instrument: { uid: string; symbol: string; name: string; market: string; currency: string }
+  score: number
+  signals: Record<string, unknown>
+  horizon: string
+  fiscal_period: string
+  sources: string[]
+  quote_as_of: string | null
+  kind: string
+}
+
+export type OpportunityStudy = {
+  kind: string
+  note: string
+  items: OpportunityItem[]
+  skipped: { uid?: string; symbol: string; reason: string }[]
+  counts: { items: number; skipped: number }
+}
+
+export type ThesisStatus = "open" | "under_review" | "validated" | "invalidated" | "closed"
+
+export type ThesisView = {
+  id: number
+  instrument: { uid: string | null; symbol: string; name: string } | null
+  instrument_uid: string | null
+  horizon: string
+  title: string
+  hypothesis: string
+  invalidation_conditions: Record<string, unknown>[]
+  uncertainty_level: string
+  missing_info: string[]
+  status: ThesisStatus
+  entry_target: string | null
+  exit_target: string | null
+  version_count: number
+  created_at: string
+  updated_at: string
+  versions?: { number: number; hypothesis: string; note: string; uncertainty_level: string; created_at: string }[]
+  events?: { id: number; kind: string; payload: Record<string, unknown>; detected_by: string; created_at: string }[]
+}
+
+export type BacktestRun = {
+  id: number
+  instrument: { uid: string | null; symbol: string | null }
+  benchmark: { uid: string; symbol: string } | null
+  strategy: string
+  params: Record<string, unknown>
+  base_currency: string
+  period_start: string
+  period_end: string
+  points: number
+  trades: number
+  metrics: {
+    total_return: number
+    cagr: number | null
+    ann_volatility: number | null
+    sharpe: number | null
+    sortino: number | null
+    max_drawdown: number
+    final_equity: string
+    initial_equity: string
+    trading_days: number
+  }
+  walk_forward: { applied: boolean; reason?: string; split_date?: string; train_points?: number; eval_points?: number; chosen?: { fast: number; slow: number }; note?: string }
+  warnings: string[]
+  created_at: string | null
+  curve?: { date: string; equity: string }[]
+  benchmark_result?: { available: boolean; symbol?: string; metrics?: BacktestRun["metrics"] }
+  last_trades?: { day: string; side: string; price: string; qty: string; fee: string }[]
+  notes?: string[]
+}
+
+export const alertsApi = {
+  state: () =>
+    api<{
+      rules: AlertRule[]
+      catalog: AlertKindMeta[]
+      scheduler: { state: string; interval_minutes: number }
+      unread: number
+    }>("/alerts"),
+  events: (unreadOnly = false) =>
+    api<{ unread: number; events: AlertEvent[] }>(`/alerts/events?unread_only=${unreadOnly}&limit=100`),
+  create: (body: { kind: string; instrument_uid?: string | null; threshold?: string | null; config?: Record<string, unknown> }) =>
+    api<AlertRule>("/alerts", { method: "POST", body }),
+  update: (id: number, body: { active?: boolean; threshold?: string | null; config?: Record<string, unknown> }) =>
+    api<AlertRule>(`/alerts/${id}`, { method: "PATCH", body }),
+  remove: (id: number) => api<{ deleted: number }>(`/alerts/${id}`, { method: "DELETE" }),
+  evaluate: () => api<{ new_events: number }>("/alerts/evaluate", { method: "POST" }),
+  readAll: () => api<{ marked: number }>("/alerts/events/read-all", { method: "POST" }),
+  read: (id: number) => api<{ id: number }>(`/alerts/events/${id}/read`, { method: "POST" }),
+}
+
+export const boardApi = {
+  watchlist: () => api<{ items: WatchlistItemView[] }>("/watchlist"),
+  addWatchlist: (instrumentUid: string, note = "") =>
+    api<{ instrument_uid: string; note: string; already: boolean }>("/watchlist", {
+      method: "POST",
+      body: { instrument_uid: instrumentUid, note },
+    }),
+  removeWatchlist: (instrumentUid: string) =>
+    api<{ removed: string }>(`/watchlist/${instrumentUid}`, { method: "DELETE" }),
+  opportunities: (horizon?: string) =>
+    api<OpportunityStudy>(`/opportunities${horizon ? `?horizon=${horizon}` : ""}`),
+}
+
+export const thesesApi = {
+  list: (status?: ThesisStatus) => api<{ theses: ThesisView[] }>(`/theses${status ? `?status=${status}` : ""}`),
+  get: (id: number) => api<ThesisView>(`/theses/${id}`),
+  create: (body: {
+    instrument_uid: string
+    horizon: string
+    title: string
+    hypothesis: string
+    invalidation_conditions: { type: string; price?: number; text?: string; note?: string }[]
+    uncertainty_level?: string
+    missing_info?: string[]
+    entry_target?: number | null
+    exit_target?: number | null
+  }) => api<ThesisView>("/theses", { method: "POST", body }),
+  addVersion: (id: number, body: { hypothesis?: string; uncertainty_level?: string; note?: string }) =>
+    api<{ number: number }>(`/theses/${id}/versions`, { method: "POST", body }),
+  addEvent: (id: number, body: { kind: string; payload?: Record<string, unknown> }) =>
+    api<{ id: number }>(`/theses/${id}/events`, { method: "POST", body }),
+  setStatus: (id: number, status: ThesisStatus, note = "") =>
+    api<{ status: string }>(`/theses/${id}/status`, { method: "PATCH", body: { status, note } }),
+  evaluate: () => api<{ new_events: number }>("/theses/evaluate", { method: "POST" }),
+  remove: (id: number) => api<{ deleted: number }>(`/theses/${id}`, { method: "DELETE" }),
+}
+
+export const backtestsApi = {
+  list: () => api<{ items: BacktestRun[] }>("/backtests?limit=50"),
+  get: (id: number) => api<BacktestRun>(`/backtests/${id}`),
+  create: (body: {
+    instrument_uid: string
+    strategy: string
+    params?: Record<string, unknown>
+    base_currency?: string
+    initial_cash?: string
+    commission_bps?: string
+    slippage_bps?: string
+    start?: string | null
+    end?: string | null
+    benchmark_uid?: string | null
+    walk_forward?: boolean
+  }) => api<BacktestRun>("/backtests", { method: "POST", body }),
+}
+
 export const systemApi = {
   dashboard: () => api<Dashboard>("/dashboard"),
   health: () => api<{ status: string; version: string; database: string; ai_enabled: boolean }>("/health"),
