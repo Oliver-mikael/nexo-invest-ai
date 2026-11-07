@@ -373,3 +373,190 @@ Decisiones implementadas en este ciclo (Ciclo 3, 0.3.0):
 Ciclo 3 (0.3.0): decisiones 35 a 42. 303 pruebas aprobadas, 1 omitida. Informes
 `reports/verify-aapl-2026-10-28.md` y `reports/backtest-aapl-2026-10-28.md` reproducidos
 byte a byte salvo la línea de fecha.
+
+## Ciclo 6 — evolución multimercado (2.0)
+
+### 43. `Decimal` y `Numeric` para todo importe contable
+
+Motivo: `float` no representa de forma exacta céntimos ni tipos de cambio y produce
+diferencias que el usuario no puede explicar.
+
+Consecuencia: la API acepta cadenas decimales, Pydantic las convierte a `Decimal`, el motor
+opera con `Decimal` y la base usa `Numeric(28,10)` / `Numeric(24,10)`. SQLite conserva la
+afinidad numérica; PostgreSQL conserva precisión exacta. Se documenta que producción debe
+usar PostgreSQL.
+
+### 44. Identidad de instrumento independiente del ticker
+
+Motivo: un mismo símbolo puede existir en varios mercados y un ticker no identifica de
+forma global a un emisor.
+
+Consecuencia: cada instrumento tiene un `uid` estable; la unicidad real es
+`(market_id, symbol)` y se admite ISIN. La API y la cartera usan `uid`, no el ticker.
+
+### 45. La cartera real no comparte tablas con la simulada
+
+Motivo: mezclar operaciones ficticias y reales haría imposible explicar el capital, los
+impuestos y la rentabilidad.
+
+Consecuencia: `real_accounts`/`real_movements` son independientes de
+`portfolios`/`positions`/`trades`. Las pruebas comprueban que crear movimientos reales deja
+la cartera simulada vacía.
+
+### 46. Efectivo en moneda base y tipo de cambio histórico por movimiento
+
+Motivo: recalcular una operación antigua con el cambio actual inventa resultados.
+
+Consecuencia: cada movimiento guarda `currency`, `fx_rate`, `fx_date` y `fx_source`; el
+efectivo se lleva en la moneda base de la cuenta usando ese cambio. El consolidado agrupa
+por divisa y nunca suma BOB + USD sin un tipo explícito. Cambiar la moneda base de una
+cuenta con movimientos se rechaza.
+
+### 47. FIFO y coste medio calculados en paralelo
+
+Motivo: la elección del método cambia el beneficio realizado y debe ser explícita, no un
+detalle oculto.
+
+Consecuencia: el motor mantiene lotes FIFO y una bolsa de coste medio; la cuenta elige el
+método principal y las pruebas numéricas fijan ambos resultados. Las comisiones de compra
+se capitalizan; las de venta reducen el importe neto.
+
+### 48. Traspaso de valores a coste, no a precio de mercado
+
+Motivo: un traspaso interno no es una venta ni genera plusvalía; usar un importe declarado
+distinto del coste fabricaría ganancias o pérdidas.
+
+Consecuencia: la salida usa el coste realmente retirado del libro; la entrada usa el coste
+declarado por el usuario. Un traspaso de efectivo se compensa en el consolidado de la misma
+divisa. Los traspasos entre divisas distintas no se consolidan automáticamente.
+
+### 49. Cotizaciones manuales privadas; datos de proveedor globales
+
+Motivo: una cotización introducida por un usuario no puede alterar la valoración de la
+cartera de otra persona. Es un problema de integridad y de aislamiento.
+
+Consecuencia: `quotes` y `fx_rates` tienen `user_id`; nulo significa dato global de
+proveedor. Las consultas ven globales + propias. En empate de fecha y calidad, la corrección
+del usuario prevalece solo para él.
+
+### 50. OCR local y confirmación humana obligatoria
+
+Motivo: enviar documentos financieros a un tercero tiene implicaciones de privacidad y
+coste; además, un OCR puede confundir dígitos.
+
+Consecuencia: se usa `pypdf`/Tesseract en el servidor, sin servicio de pago. La extracción
+devuelve una propuesta con `review_required: true`; el movimiento solo se crea en un
+endpoint de confirmación distinto, con los campos corregidos y vínculo al documento. Si
+Tesseract no está instalado, la API responde 503 y no simula.
+
+### 51. Importación en dos fases y duplicados por huella
+
+Motivo: una importación errónea no debe escribir movimientos ni duplicar el mismo hecho.
+
+Consecuencia: `preview` normaliza y valida sin escribir; `confirm` es explícito. La huella
+usa `external_id` si existe o los campos económicos. Las filas inválidas bloquean la
+confirmación salvo que el usuario pida una importación parcial.
+
+### 52. Sin datos no se publica una cifra
+
+Motivo: una posición sin precio o un TWR sin valoraciones completas no son cero.
+
+Consecuencia: la valoración devuelve `complete: false`, `total_value: null` y la lista de
+datos faltantes. XIRR/TWR se declaran no disponibles con motivo. No se usa el coste como
+precio de mercado.
+
+### 53. Documentos privados con validación de firma
+
+Motivo: el tipo MIME declarado por el cliente no demuestra el contenido y el directorio
+estático no es un lugar seguro.
+
+Consecuencia: se comprueba la firma real (PDF/JPEG/PNG/WebP), se limita el tamaño, se usa
+un `storage_key` aleatorio fuera de `web/dist`, la descarga exige token y un documento
+vinculado a un movimiento no se puede borrar.
+
+### 54. Sin credenciales de bróker y sin órdenes
+
+Motivo: la autorización de esta fase es seguimiento y registro; custodiar credenciales o
+enviar órdenes añade riesgo legal y operativo no autorizado.
+
+Consecuencia: el bróker es texto descriptivo, no hay campos de usuario/clave ni endpoints
+de ejecución. La UI declara que no se envían órdenes.
+
+### 55. Divisas: Frankfurter primario y ExchangeRate-API como segunda opinión
+
+Motivo: hacía falta una integración real y gratuita de divisas que cubriera BOB (Bolivia)
+sin claves ni cuota. Stooq se descartó por exigir API key con CAPTCHA y limitar el uso a
+particular. Frankfurter v2 cubre 228 monedas con el BCBO y publica licencia; ExchangeRate-API
+Open es diaria, cubre BOB y permite detectar divergencias.
+
+Consecuencia: `fx_provider=frankfurter`, `fx_secondary_provider=erapi`. Ambas tasas se
+conservan por fuente con su `kind` (no se unifican); una divergencia superior al 3 % se
+registra como anomalía en el run. ER-API se usa con atribución y caché (sus términos
+prohíben redistribuir), solo para valoración interna.
+
+### 56. Precios históricos: StockAnalysis con cobertura declarada
+
+Motivo: Yahoo respondió 429 en este entorno y Stooq está cerrado; StockAnalysis devolvió
+200 sin clave para US, Alemania, España y Reino Unido con histórico diario.
+
+Consecuencia: `prices_provider=stockanalysis`, API **no oficial** y sin redistribución,
+caché obligatoria por TTL. El mapa mercado→bolsa es explícito (`EXCHANGE_BY_MIC`/
+`EXCHANGE_BY_COUNTRY`); cualquier mercado fuera de cobertura (p. ej. XMEX) lanza error
+explícito y no se sustituye por otro. Solo cierres diarios (`close`): nunca tiempo real.
+El cierre sin ajustar y el ajustado se guardan con identidad de fuente distinta
+(`stockanalysis` y `stockanalysis:adj`) para no mezclar semánticas.
+
+### 57. Sin Redis/Celery: `DataSyncRunner` en proceso
+
+Motivo: la auditoría previa mostró que `JobRunner` ya resuelve cola persistente con
+`ThreadPoolExecutor`, pero está acoplado a `ResearchJob` y al orquestador IA; reutilizarlo
+literalmente obligaría a mezclar trabajos de IA con datos de mercado.
+
+Consecuencia: se añade `DataSyncRunner` con el mismo patrón (hilos + estado en base de
+datos + recuperación al arrancar + `task_key` anti-duplicados) sin tocar la cola existente
+ni añadir dependencias. No es una segunda cola arbitraria: es el patrón ya probado en este
+repositorio, con el límite documentado de que con varias réplicas hará falta un broker
+compartido (fase 6). Ambos runners migran juntos.
+
+### 58. Planificador de datos apagado por defecto
+
+Motivo: activar recopilaciones automáticas generaría tráfico externo a proveedores sin
+consentimiento explícito, contra sus términos y contra el principio de no sorpresa.
+
+Consecuencia: `NEXO_DATA_SYNC_INTERVAL_MINUTES=0` y `Instrument.auto_sync_prices=false`
+por defecto. Se activa por entorno o desde la interfaz (`POST /data/instruments/{uid}/
+auto-sync`). La API de sincronización responde encolando en segundo plano para no bloquear.
+
+### 59. Fundamentales: solo lo que el emisor reporta
+
+Motivo: presentar un EBITDA o un flujo de caja libre calculados como si fueran reportados
+sería engañoso; la SEC no los publica como concepto XBRL estándar.
+
+Consecuencia: se almacenan ingresos, beneficio neto, EPS diluido, efectivo, deuda a largo
+plazo y acciones en circulación, con `quality=reported` y `period_type` anual/trimestral
+sin mezclar. EBITDA y FCF quedan en `null` y la interfaz lo explica. Solo emisores con CIK
+(EE. UU.); el resto de mercados queda como «no disponible», sin sustituto.
+
+### 60. Sin proveedor de noticias: se declara, no se inventa
+
+Motivo: no se encontró una fuente gratuita con licencia clara para titulares y eventos que
+cumpla las condiciones de la fase (procedencia, redistribución y caché).
+
+Consecuencia: el catálogo incluye la categoría `news` con `configured: false`, `GET
+data/news` devuelve `available: false` con el motivo y `news_items` queda preparada en el
+esquema. No se muestra ningún titular hasta que haya una fuente verificable.
+
+### 61. Un dato nuevo no sobrescribe uno válido
+
+Motivo: una respuesta errónea, incompleta o de otro día no debe pisar un dato ya almacenado.
+
+Consecuencia: la persistencia compara por identidad (par/fecha/fuente o instrumento/fecha/
+fuente); un valor distinto sin `force` se guarda como anomalía (`..._sin_force`) y el
+original permanece. Solo `force=true` sustituye, y también deja anomalía. Las fechas
+futuras, los saltos diarios extremos y los datos obsoletos se marcan sin descartarlos.
+
+Ciclo 6 (2.0): 490 pruebas recolectadas, 489 aprobadas, 1 omitida (red). Las fases 2, 3, 4
+y 5 (cartera real, rentabilidad, registro/importación/OCR y datos automáticos multimercado)
+están implementadas y probadas; las fases 6 a 10 (cola compartida, alertas, tesis,
+backtesting multimercado, Android y producción) siguen pendientes y no se presentan como
+terminadas.

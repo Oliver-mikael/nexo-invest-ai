@@ -1,161 +1,201 @@
-# Estado de la sesión — Nexo Invest AI
+# Estado de la sesión — Nexo Invest AI 2.0Fecha: 2026-11-07 · Plataforma 2.0.1 · Motor 0.3.0
+Repositorio: `Oliver-mikael/nexo-invest-ai`
+Rama de trabajo: `feat/platform-v1` (PR #2, abierto y **sin fusionar**)
+Base remota: `f5b87c4`; integración por fast-forward (PR #2 abierto, sin fusionar)
 
-Fecha de esta sesión: 2026-10-31 (Ciclo 4)
-Espacio de trabajo: `/home/daytona/codebase`
-Repositorio remoto: `Oliver-mikael/nexo-invest-ai` (público desde el 2026-10-31)
-Versión del producto: 0.3.0
-Rama de trabajo: `feat/complete-source-integration` (Pull Request abierto contra `main`)
+`main` sigue en `84585a2`: no se ha modificado ni se ha fusionado ningún PR.
 
-Documento de continuidad: lo que necesitas para retomar el trabajo sin reconstruir contexto.
+Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 
-## Qué es hoy el proyecto
+## Qué existe hoy
 
-CLI en Python que descarga estados financieros presentados de SEC EDGAR, los contrasta con
-una segunda fuente independiente, comprueba el precio de mercado en dos orígenes, registra
-la procedencia de cada cifra, calcula indicadores con fórmula y requisito declarados, valora
-por escenarios y genera informes Markdown reproducibles que separan hechos, datos sin
-validar, estimaciones, supuestos y ausencias.
+- **Motor financiero** `src/nexo_invest` sin reescribir: SEC EDGAR, Nasdaq, Yahoo, métricas,
+  DCF, escenarios, sensibilidad, backtest, estrategias e informes.
+- **Backend** `app/`: FastAPI v1, SQLAlchemy 2 + Alembic, autenticación por token, trabajos
+  persistentes, orquestador multi-IA, auditoría de cifras, cartera simulada y exportaciones.
+- **Cartera real multimercado (nuevo)**: mercados MIC, instrumentos con `uid` estable, ISIN,
+  cuentas reales, movimientos, contabilidad Decimal, divisas históricas, importación y
+  documentos con OCR local.
+- **Web/PWA** `web/`: React + TypeScript + Vite + Tailwind; panel, empresas, investigación,
+  informes, cartera real (resumen/movimientos/importar/documentos), cartera simulada y ajustes.
+- **Datos de mercado automáticos (nuevo, fase 5)**: adaptadores Frankfurter y
+  ExchangeRate-API (divisas, BOB incluido), StockAnalysis (precios históricos US/DE/ES/GB)
+  y SEC EDGAR (fundamentales con CIK); runs con procedencia, caché con TTL, anomalías,
+  cola ligera con recuperación y anti-duplicados, API `/api/v1/data/*` y página `/datos`.
+  Planificador apagado por defecto; noticias declaradas sin proveedor.
+- **Despliegue**: Dockerfile multi-stage con Tesseract, compose con PostgreSQL, caché y volumen
+  de documentos privados.
 
-No es asesoramiento financiero. No ejecuta órdenes. No emite recomendaciones mientras no haya
-precio de mercado comprobado, y aun con él no recomienda.
+## Fases de la evolución 2.0
 
-## Inventario real del workspace
+| Fase | Estado |
+| --- | --- |
+| 1. Consolidación (rama, PR, CI, migraciones) | Completada |
+| 2. Cartera real multimercado | Completada |
+| 3. Rentabilidad: FIFO/media, TWR, XIRR, divisas | Completada |
+| 4. Registro manual, CSV/XLSX y OCR con confirmación | Completada; OCR real condicionado a Tesseract |
+| 5. Datos financieros automáticos y multimercado | Completada: divisas, precios históricos y fundamentales reales; noticias sin proveedor declarado |
+| 6. Workers, scheduler y alertas | Completada: planificador persistente y worker independiente |
+| 7. Multiagentes por horizonte y tesis versionadas | Completada: investigación multiagente con tesis y oportunidades |
+| 8. Backtesting multimercado | Completada: motor determinista con costes, divisas y walk-forward |
+| 9. Interfaz completa, watchlist, oportunidades y Android | Completada la interfaz (seguimiento, alertas, tesis, backtests, tareas); APK no generado |
+| 10. Producción, backups, monitorización y Bolivia | Pendiente |
+| 11. Validación E2E en navegador y endurecimiento de seguridad (fases 1.2 y 1.3) | Completada y verificada en CI |
 
-Raíz:
-- `README.md` — propósito, uso, estructura, niveles de procedencia, limitaciones.
-- `pyproject.toml` — Python 3.10, hatchling, CLI `nexo`, **sin dependencias de ejecución**
-  (`pytest` y `ruff` solo como dev extra) y reglas de Ruff fijadas.
-- `.github/workflows/ci.yml` — CI: instalación, Ruff, import de todos los módulos, pruebas y CLI.
-- `docs/VALIDATION.md` — registro de las validaciones con datos reales (Apple y Microsoft,
-  2026-10-31) con comandos, cifras y SHA-256 de los documentos.
-- `scripts/update_reports.sh` — regenera informes y prueba histórica con registro de éxito/fallo.
-- `reports/` — informes reales generados (ver abajo).
-- `backups/` — respaldos históricos por fecha (los anteriores no se tocan).
-- `.cache/`, `.sec_cache/` — caché de descargas (no versionar).
+No se presenta ninguna fase pendiente como terminada.
 
-`src/nexo_invest/`:
-- `__init__.py` — versión 0.3.0 y API pública.
-- `cli.py` — `version`, `metrics-demo`, `sec-report`, `screen`, `backtest`, **`verify`**.
-- `analysis.py` — `build_real_report`: fuente → registro → estado → indicadores → escenarios → informe.
-- `verification.py` — **nuevo**: contraste entre fuentes (`contrast_annual_revenue`,
-  `contrast_close_price`, `contrast_failed`), `margin_of_safety` e informe de verificación.
-- `strategies.py` — estrategia de valor (seis criterios) y estado de la estrategia táctica.
-- `backtest.py` — prueba histórica + **`audit_backtest`** (recálculo independiente y control
-  de anticipación sobre la serie recortada).
-- `core/units.py`, `core/periods.py`, `core/metrics.py`, `core/sources.py`, `core/dcf.py`,
-  `core/report.py` — sin cambios estructurales en este ciclo.
-- `data/sec_edgar.py` — adaptador de la fuente primaria (condiciones de acceso, caché, SHA-256).
-- `data/nasdaq.py` — **nuevo**: segunda fuente (estado de resultados y cierres diarios).
-- `data/prices.py` — adaptador de precios (Yahoo Finance, fuente declarada no oficial).
+## Modelo y reglas contables
 
-`tests/` — 14 archivos, **304 pruebas** (303 aprobadas, 1 omitida por red). Fixtures locales:
-`sec_companyfacts_aapl_subset.json`, `yahoo_aapl_5y.json`, **`nasdaq_aapl_financials.json`**,
-**`nasdaq_aapl_historical_2026-10.json`**. Ninguna prueba usa Internet.
+Tablas nuevas: `markets`, `instruments`, `quotes`, `fx_rates`, `real_accounts`,
+`real_movements`, `import_batches`, `documents`.
 
-`docs/` — ARCHITECTURE, DECISIONS, ROADMAP, KNOWN_ISSUES, CHANGELOG, SESSION_STATE.
+Tablas de datos automáticos (fase 5): `provider_runs`, `data_cache`, `fundamentals`,
+`news_items`; columnas nuevas `quotes.adjusted`, `fx_rates.kind` e
+`instruments.auto_sync_prices`.
 
-## Informes reales generados
+- Identidad: `instruments.uid`; unicidad `(market_id, symbol)`; ISIN opcional.
+- Importes: `Numeric(28,10)` y `Numeric(24,10)`; cálculos con `Decimal`.
+- Efectivo en la moneda base de la cuenta, convertido con el `fx_rate` histórico del
+  movimiento. Una operación histórica nunca se recalcula con el cambio actual.
+- FIFO y coste medio en paralelo; la cuenta elige el método principal.
+- Comisiones de compra capitalizadas; comisiones/impuestos de venta reducen el neto;
+  dividendos netos de retención.
+- Traspaso de valores sale por el coste retirado y entra por el coste declarado; no genera
+  plusvalía. Traspaso de efectivo se compensa en el consolidado de la misma divisa.
+- Sin cotización o sin cambio, la posición queda sin valorar y el total es parcial.
+- XIRR/TWR solo se publican con datos suficientes; TWR explica el motivo cuando no.
+- Cotizaciones/tipos manuales llevan `user_id`; las globales (proveedor) tienen `user_id`
+  nulo. Un usuario no puede alterar la valoración de otro.
 
-- `reports/verify-aapl-2026-10-28.md` — **nuevo**: contraste de ingresos, precio comprobado,
-  valoración con margen de seguridad y auditoría de la prueba histórica. Reproducido byte a
-  byte salvo la línea de fecha.
-- `reports/backtest-aapl-2026-10-28.md` — prueba histórica con el coste de entrada corregido.
-- `reports/aapl-sec-2026-10-27.md` — informe de empresa (Ciclo 2, 1 591 observaciones).
-- `reports/estrategias-2026-10-27.md` — cribado de valor sobre seis empresas reales.
-- `reports/backtest-aapl-2026-10-27.md` — **superado** por la corrección del Ciclo 3.
+## API nueva (resumen)
 
-## Resultados reales que no hay que olvidar
+- `GET /api/v1/markets`, `GET/POST /api/v1/instruments`, `POST/GET .../quotes`, `POST/GET /fx-rates`.
+- `GET/POST /api/v1/real/accounts`, `GET/PATCH/DELETE .../{id}`.
+- `GET .../{id}/summary`, `GET/POST .../{id}/movements`, `PATCH/DELETE .../movements/{mid}`.
+- `GET /api/v1/real/overview`, `GET /api/v1/real/performance`.
+- `POST .../{id}/imports/preview`, `POST .../imports/{batch}/confirm`, `DELETE .../imports/{batch}`.
+- `POST/GET /api/v1/real/documents`, `POST .../{id}/extract`, `POST .../{id}/confirm`,
+  `GET .../{id}/file`, `DELETE .../{id}`.
+- `GET /api/v1/data/status|providers|runs|fx-rates|fundamentals|news`.
+- `POST /api/v1/data/sync/fx|prices|fundamentals` (segundo plan por defecto) y
+  `POST /api/v1/data/instruments/{uid}/auto-sync`.
 
-- Apple, SEC EDGAR (CIK 320193), consultado 2026-10-27:
-  SHA-256 `73a86c6aedc31f77cac2ea4df5f80f0b3bd7e6eb58bb4e01444fbedf3afb9c43`.
-- **Ingresos FY2025** (cierre 2025-09-27): SEC `416.161.000.000 USD` vs Nasdaq `416.161.000`
-  → coinciden, diferencia relativa 0, unidad inferida ×1000. Consultas: SEC 2026-10-27,
-  Nasdaq 2026-10-28. La observación primaria sube a `EXTERNAL_CORROBORATED` con la evidencia
-  en sus notas; la fuente secundaria queda registrada (26 fuentes, 1 591 observaciones).
-- **Precio AAPL 2026-10-27**: Yahoo `347,100006` vs Nasdaq `Close/Last 347,10` → coinciden
-  (0,000002 %), cierre sin ajustar, `external_corroborated`.
-- **Valoración con ese precio**: bajista 56,09 USD/acción (margen de subida −83,84 %, margen
-  de seguridad −518,81 %), base 118,93 USD (−65,74 %, −191,86 %), alcista 197,73 USD
-  (−43,03 %, −75,54 %). Fórmula: `1 − precio / valor por acción`. Margen negativo = el precio
-  supera el valor estimado con esos supuestos; no es recomendación de venta.
-- **Prueba histórica corregida** (AAPL 2021-10-28 → 2026-10-27, 1 253 sesiones): estrategia
-  65,07 % (anualizada 10,61 %, caída máxima −33,36 %, 3 entradas, 2 cerradas), buy & hold
-  **132,90 %** (antes 133,25 % por un coste de entrada mal descontado). La regla **no** supera
-  a mantener el activo; está publicado así.
-- TTM de Apple es `None`: la fuente no publica el cuarto trimestre como periodo independiente.
-- FCF base usado: 98.767.000.000 USD (estimado: flujo operativo − inversiones). Deuda neta
-  43.960.000.000 USD (no resta inversiones a largo plazo: limitación documentada).
-  Acciones: 14.773.260.000.
+## Migración y esquema
 
-## Estado de las pruebas
+- Revisión inicial: `1af6489f6582`.
+- Nueva revisión: `1a0119241c07` — mercados, instrumentos, cotizaciones, divisas, cuentas
+  reales, movimientos, importaciones y documentos.
+- Nueva revisión: `2b7d5f3a91e4` — runs de proveedor, caché, fundamentales, noticias y
+  columnas `quotes.adjusted` / `fx_rates.kind` / `instruments.auto_sync_prices`.
+- Verificada con `alembic upgrade head`, `alembic check` (sin operaciones pendientes) y
+  `alembic downgrade base && alembic upgrade head` sobre SQLite temporal.
+- Los mercados de referencia se siembran al arrancar (`app/services/reference.py`) de forma
+  idempotente.
 
+## Verificación exacta
+
+```bash
+python3 -m pytest
+# 543 passed, 1 skipped · 1 warning (StarletteDeprecationWarning por httpx/testclient)
+
+python3 -m ruff check src app tests
+# All checks passed!
+
+cd web && npm run typecheck && npm run build
+# typecheck OK; build OK: JS 357,86 kB (101,15 kB gzip), CSS 30,33 kB (5,98 kB gzip)
+
+npm run e2e
+# chromium-desktop: 33 passed, 5 skipped · chromium-mobile: 36 passed, 2 skipped
+# (38 casos por proyecto; los omitidos son exclusivos del otro viewport)
+
+rm -f var/migration.db
+NEXO_DATABASE_URL=sqlite:///./var/migration.db alembic upgrade head
+NEXO_DATABASE_URL=sqlite:///./var/migration.db alembic check
+# No new upgrade operations detected.
 ```
-python3 -m pytest        →  397 passed, 1 skipped
+
+Comprobado también en GitHub Actions sobre `2854d58` (run 42397855482) y `8cb6257`
+(run 42398092247): los cuatro jobs en verde —Python 3.10, Python 3.12, web y E2E con
+Chromium real— y el informe de Playwright publicado como artefacto.
+
+Pruebas nuevas destacadas:
+
+- `tests/platform/test_accounting_real.py`: FIFO vs media, dividendos, splits, traspasos,
+  XIRR conocido, TWR, atribución cambiaria, ausencia de precio y rechazo de sobregiros.
+- `tests/platform/test_api_real.py`: CRUD, aislamiento por usuario, cotizaciones privadas,
+  `as_of`, overview por divisa e importación con duplicados/parcial.
+- `tests/platform/test_imports_ocr.py`: decimales y fechas, CSV/XLSX, campos OCR.
+- Documentos: firma real, 404 cruzado, OCR con extractor simulado, vínculo y bloqueo de borrado.
+- `tests/platform/test_market_data.py` (20): procedencia de divisas, no sobrescritura sin
+  `force`, caché, divergencias, 429 con reintentos, histórico, cierres/ajustados, frescura,
+  caída de proveedor sin pérdida de datos, mercado no soportado, fundamentales solo
+  reportados, requisito de CIK, aislamiento por usuario y validación de la API.
+- `tests/platform/test_data_automation.py` (9): anti-duplicados en encolado, recuperación
+  de runs interrumpidos, agotamiento de intentos, planificador apagado por defecto y
+  programación de pares + instrumentos con auto-sync.
+
+## Arranque local
+
+```bash
+python3 -m pip install -e ".[dev]"
+export NEXO_SEC_CONTACT="tu-correo@dominio.com"
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+# API: http://localhost:8000/docs
+cd web && npm install && npm run dev
 ```
 
-Reparto por archivo: analysis_report 26, backtest 26, backtest_audit 10, dcf 21, metrics 21,
-metrics_extended 34, nasdaq 14, periods 15, report 4, sec_edgar 29, sources 42, strategies 16,
-units 17, verification 25, verify_cli 4. El test omitido depende de red por diseño.
+Docker:
 
-## Estado de Git
+```bash
+docker compose up -d --build
+```
 
-- `main` permanece en `ba81e9c`; el trabajo va en `feat/complete-source-integration`.
-- La publicación anterior (`ba81e9c`) solo contenía 24 ficheros: 13 módulos de `src/`, 12 ficheros
-  de pruebas, 6 documentos, 6 informes y el script quedaron fuera. El Ciclo 4 los recupera y el
-  repositorio pasa a 63 ficheros versionados, con `.gitignore` para secretos, cachés y ZIPs.
-- Cualquier cambio se revisa en un Pull Request; `main` no se toca desde el workspace.
+El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
+`nexo-documents:/app/var/documents` y ejecuta `alembic upgrade head` antes de arrancar.
 
-## Restricciones activas
+## Limitaciones y riesgos abiertos
 
-- `venv` **sí** está disponible (comprobado el 2026-10-31); la instalación principal del
-  workspace sigue siendo `pip install -e ".[dev]"` sobre el Python del sistema (3.10.12).
-- Sin programación persistente de tareas: `scripts/update_reports.sh` se lanza a mano.
-- `NEXO_SEC_CONTACT` debe contener un correo real antes de consultar la SEC; sin él responde 403.
-- **`api.nasdaq.com` corta en silencio (timeout) los `User-Agent` con URL de contacto**;
-  verificado con peticiones repetidas. El adaptador usa la forma corta identificable.
-- No hay claves ni secretos en el workspace; ninguna integración de pago.
+1. Datos automáticos: cubiertos divisas (Frankfurter + ExchangeRate-API), precios
+   históricos (StockAnalysis, US/DE/ES/GB) y fundamentales (SEC con CIK). Siguen sin
+   proveedor dividendos, noticias, eventos y calendarios; LATAM sin cobertura de precios.
+   No se declara tiempo real sin serlo.
+2. OCR real no probado en este workspace: falta el binario Tesseract. El flujo con extractor
+   simulado y la ruta de error 503 sí están probados.
+3. Sin APK/Capacitor probado; la PWA es instalable, nada más.
+4. La recopilación de datos tiene su cola ligera en proceso con recuperación y
+   anti-duplicados; la investigación sigue con `JobRunner`. Ninguna soporta varias
+   réplicas sin una cola compartida, y siguen sin haber alertas ni notificaciones.
+5. Sin tesis versionadas, oportunidades por horizonte ni backtesting multimercado.
+6. Consolidado multi-divisa solo por grupos; no hay total único sin tipo de cambio explícito.
+7. SQLite no conserva precisión decimal exacta en almacenamiento; producción debe usar
+   PostgreSQL.
+8. No hay pruebas de navegador; la UI se verificó con TypeScript y build.
+9. No se ha investigado la disponibilidad real de brókers desde Bolivia ni implicaciones
+   fiscales; requiere trabajo documental y asesoría profesional, no código.
+10. `main` no se ha tocado, el PR #2 no se ha fusionado y no se ha desplegado nada.
 
-## Lo que está implementado y probado
+## Fases 1.2 y 1.3: validación en navegador y seguridad
 
-- Todo lo del Ciclo 2 más:
-- Segunda fuente conectada (Nasdaq) con contraste de un ejercicio fiscal completo: estados
-  `coincide` / `discrepancia` / `incomparable`, unidad inferida y limitación explícita de
-  que no es fuente primaria.
-- Precio comprobado en dos fuentes con símbolo y fecha obligatorios; sin coincidencia no se
-  calcula margen de seguridad.
-- Margen de seguridad con fórmula declarada y negativo explicado.
-- Auditoría de la prueba histórica con recálculo independiente, control de anticipación y
-  controles negativos que demuestran que detecta curvas manipuladas.
-- Corrección real del coste de entrada en la comparación con buy & hold.
+- **Suite E2E** (`web/tests/e2e/`, 38 casos por proyecto): autenticación, 13 rutas privadas,
+  navegación del shell, estado de cada pantalla, seguridad y móvil. Backend y Vite propios,
+  base SQLite desechable en `var/e2e/`, sin IA ni trabajos de fondo. Job `e2e` en CI con
+  Chromium y artefactos ante fallo.
+- **Identidad de cliente:** `X-Forwarded-For` solo se interpreta desde las redes declaradas
+  en `NEXO_TRUSTED_PROXIES`; la cadena se recorre de derecha a izquierda y se descarta si es
+  inválida. Sin esa variable, un cliente directo no puede falsificar su IP.
+- **Sesiones:** registro, acceso y cierre de sesión confirman la transacción antes de
+  responder; el 401 intermitente tras el registro (causa real de la intermitencia atribuida
+  al logout) queda eliminado. El navegador cierra la sesión local sin esperar a la red.
+- **Correcciones menores:** `step` del formulario de cartera y prueba de datos de mercado
+  dependiente del reloj.
+- Detalle completo en [`docs/E2E_VALIDATION.md`](E2E_VALIDATION.md).
 
-## Lo que está solo preparado
+## Próximo paso recomendado
 
-- Fuente primaria **independiente**: no hay ninguna. Nasdaq repite el mismo documento.
-- Precio oficial de mercado: los agregados coinciden entre sí, pero no es el tape oficial ni
-  se ha comprobado en más de una fecha.
-- Comparables reales: el modelo existe, los datos de mercado verificados no.
-- Estrategia táctica: requisitos definidos, señales no calculadas.
-- Seguimiento de cartera: requiere datos reales del usuario.
-
-## Respaldo
-
-- Ciclo 2: `backups/2026-10-28/` + `nexo-invest-ai-backup-2026-10-28.zip`
-  (SHA-256 `485ed0836820dbdd1ef482780aed70aa66b3cff12ef22976d6ae04b8057d8ff7`) y los del
-  2026-10-27. **Conservados intactos.**
-- Ciclo 3: `backups/2026-10-28-ciclo3/` + `nexo-invest-ai-backup-2026-10-28-ciclo3.zip`,
-  con manifiesto SHA-256 por archivo y prueba de restauración (ver `MANIFEST.txt`).
-
-## Próximo paso concreto
-
-Ciclo 4: fuente primaria independiente y precio oficial.
-
-Criterio objetivo para declararlo completado:
-1. Los ingresos de un ejercicio de Apple coinciden entre SEC EDGAR y una fuente que **no**
-   sea un redistribuidor del mismo documento (documento HTML original de la SEC, otro
-   registrador o la web de la propia empresa), con ambas URLs, SHAs y fechas de consulta.
-2. Un precio de cierre de AAPL comprobado en una segunda fecha además de 2026-10-27, y una
-   tercera fuente de precios que permita desacreditar o confirmar el agregado.
-3. Suite completa en verde con pruebas nuevas para ambos puntos, y el informe de verificación
-   regenerado y reproducible.
-
-No haré push a GitHub ni modificaré ramas remotas sin permiso explícito.
+Fusionar el PR #2 cuando se autorice (no se ha fusionado en esta fase) y abordar la fase 10:
+producción, backups, monitorización y operativa en Bolivia. Queda pendiente una cola
+compartida (Redis/RQ o Celery) para varias réplicas y notificaciones PWA/Android, además de
+ampliar la cobertura de datos (dividendos, eventos y noticias solo con un proveedor de
+licencia clara). Cualquier proveedor de pago, OCR externo o envío de documentos a terceros
+requiere autorización explícita.

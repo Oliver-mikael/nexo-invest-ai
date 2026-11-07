@@ -1,9 +1,85 @@
 # KNOWN_ISSUES — Nexo Invest AI
 
-Actualizado: 2026-10-31 · Versión: 0.3.0
+Actualizado: 2026-11-02 · Plataforma 2.0 · Motor 0.3.0
 
 Este documento recoge las limitaciones **reales y comprobadas** del sistema, no las que
 existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
+
+## Cartera real multimercado (2.0)
+
+- **Los proveedores automáticos cubren divisas, precios históricos y fundamentales
+  (fase 5); dividendos, noticias, eventos y calendarios siguen sin proveedor.**
+  La valoración de la cartera sigue pudiendo usar cotizaciones manuales o importadas; los
+  datos de proveedor entran por `POST /api/v1/data/sync/*` con `source`, `as_of` y `quality`.
+  No se presenta un precio retrasado como tiempo real; la nueva columna `quote_quality`
+  aparece en cada posición de la cartera real.
+- **El OCR no está verificado de extremo a extremo en este workspace** porque el binario
+  `tesseract-ocr` no está instalado. La lógica de extracción, el flujo de revisión y la
+  confirmación están implementados y probados con un extractor simulado; el contenedor
+  instala Tesseract. Si falta, la API devuelve 503 y no finge una extracción.
+- **No hay APK Android.** La PWA es instalable, pero Capacitor no se ha generado ni probado
+  en dispositivo/emulador; no se declara un APK inexistente.
+- **No hay alertas ni notificaciones.** La recopilación de datos ya tiene su propia cola
+  ligera en proceso (`DataSyncRunner`, con recuperación y anti-duplicados), pero sigue sin
+  haber workers independientes para la investigación, scheduler de alertas ni avisos
+  PWA/Android. La cola actual es un `ThreadPoolExecutor` en proceso y no sirve para varias
+  réplicas: eso es trabajo de la fase 6.
+- **No hay ejecución de órdenes ni conexión con brókers.** El nombre del bróker es texto; no
+  se guardan credenciales. La plataforma es de seguimiento y registro.
+- **TWR depende del histórico de precios/divisas.** Si falta una valoración en una fecha de
+  aporte, se devuelve `twr_available: false` con el motivo; no se interpola ni se usa el
+  coste como mercado. XIRR necesita al menos un flujo de cada signo.
+- **Traspasos entre divisas distintas** no se compensan automáticamente en el consolidado:
+  cada cuenta los ve como flujo externo en su moneda base. Los traspasos de la misma divisa
+  sí se compensan.
+- **La consolidación no suma monedas distintas.** El overview agrupa por divisa base; no hay
+  un total único multi-divisa sin un tipo de cambio explícito y una fecha de conversión.
+- **SQLite no es una base contable exacta a nivel de almacenamiento.** Los cálculos usan
+  `Decimal`, pero SQLite guarda con afinidad numérica. Para producción contable, PostgreSQL
+  con `Numeric` es el entorno previsto.
+- **El tipo de cambio histórico** puede venir del usuario, del importador o de la
+  sincronización de divisas (Frankfurter, histórico con `force` para corregir). No se
+  corrige retroactivamente en silencio: cualquier sustitución queda registrada como
+  anomalía en el run con el valor anterior y el nuevo.
+- **La importación no guarda el archivo original**, solo el hash y las filas normalizadas de
+  la previsualización. Para auditoría documental de importaciones hará falta una fase
+  posterior.
+- **No hay pruebas de navegador.** La interfaz se verifica con TypeScript y build, no con
+  Playwright ni capturas automatizadas. Afecta también a la página `/datos`.
+
+## Datos automáticos (fase 5)
+
+- **Precios solo en US, DE, ES y GB (verificados).** StockAnalysis devuelve error explícito
+  para el resto (LATAM incluida): no se sustituye por otro mercado ni se inventa un precio.
+  Su API es **no oficial y sin clave**: puede cambiar, requerir credencial o limitar acceso;
+  los términos asumen uso personal sin redistribución (caché propia, sin reexposición).
+- **StockAnalysis no es el tape oficial ni tiempo real:** solo cierres diarios `close`. El
+  cierre sin ajustar y el ajustado se guardan aparte y no se mezclan.
+- **Frankfurter publica fecha de calendario, no instante intradía:** `as_of` es la fecha del
+  dato. Los datos son diarios (`close`), jamás `realtime`. Las consultas pinneadas a un
+  proveedor concreto (p. ej. BCBO) quedan sujetas a los términos de esa fuente.
+- **ExchangeRate-API es una tasa agregada de mercado:** se guarda con `kind=market` y en
+  Bolivia no se presenta como oficial. Sus términos exigen atribución y prohíben
+  redistribuir: solo se almacena para uso interno. 1 petición/24 h recomendada (429 con
+  bloqueo de 20 min si se excede); la caché con TTL evita el abuso.
+- **Las divergencias entre fuentes se registran, no se resuelven.** Si Frankfurter y
+  ER-API difieren más del 3 % para el mismo par y fecha, se guarda la anomalía con ambos
+  valores y fuentes; el sistema no elige «la tasa correcta».
+- **Durante la vigencia de la caché no se reconsulta** (60 min divisas actuales, 20 h
+  históricos y precios): el dato en pantalla puede tener hasta esa antigüedad además de la
+  fecha real que ya muestra.
+- **Fundamentales solo para emisores con CIK (EDGAR, EE. UU.).** EBITDA y flujo de caja
+  libre quedan en `null` porque la fuente no los publica como concepto; no se calculan y se
+  presentan como reportados. El resto de mercados se declara «no disponible».
+- **Sin proveedor de noticias, eventos ni calendarios.** El catálogo lo marca
+  `configured: false` y `GET /data/news` devuelve `available: false` con el motivo.
+- **El planificador está apagado por defecto** (`NEXO_DATA_SYNC_INTERVAL_MINUTES=0`): no
+  hay recopilación automática sin que se active explícitamente. La anti-duplicación por
+  `task_key` protege dentro de un proceso; entre varias réplicas queda una carrera
+  documentada hasta que haya un índice único y una cola compartida (fase 6).
+
+Las limitaciones históricas del motor financiero (procedencia, TTM, valoración, backtesting)
+se mantienen y se listan a continuación.
 
 ## Limitaciones del entorno
 
@@ -16,6 +92,20 @@ existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
   usuario (`cron`, `systemd timer`, Programador de tareas). **No existe automatización diaria.**
 - El hosting de Freebuff compila con Node, no con Python: el producto no se despliega ahí como
   servicio web. El entregable es la CLI y los informes que genera.
+
+## Seguridad de red y sesiones
+
+- **Los límites por IP necesitan conocer el proxy.** La identidad del cliente sale de la
+  conexión TCP; `X-Forwarded-For` solo se cree si la conexión llega de una red declarada en
+  `NEXO_TRUSTED_PROXIES`. Desplegado detrás de nginx, Traefik o un balanceador sin declarar
+  esa variable, todos los clientes comparten el cupo de la IP del proxy: el límite se vuelve
+  más estricto, nunca más laxo. Es el comportamiento seguro por defecto.
+- **Cerrar sesión revoca la sesión actual, no todas.** El resto de dispositivos siguen
+  autenticados hasta su TTL (`NEXO_SESSION_TTL_HOURS`, 72 h por defecto). No hay botón de
+  «cerrar todas las sesiones» ni revocación al cambiar la contraseña.
+- **El cierre de sesión local no depende de la red.** El navegador elimina el token antes de
+  llamar al servidor; si la revocación falla, el token caduca por TTL en el servidor y el
+  usuario queda fuera en ese navegador de inmediato.
 
 ## Datos y procedencia
 

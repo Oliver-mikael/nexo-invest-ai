@@ -279,6 +279,80 @@ Próximas tareas:
 
 - Copia limpia instalada en `venv` y 391 pruebas ejecutadas sin depender del workspace.
 
+## Ciclo 6 — Nexo Invest AI 2.0 (rama `feat/multi-market-real-money`)
+
+Base: `f5b87c4` (PR #2, sin fusionar). `main` no se modifica.
+
+### Fase 1 — Consolidación: COMPLETADA
+
+- Auditoría de rama, PR #2, CI, migraciones y suite.
+- Árbol de trabajo saneado: se restauraron seis archivos que habían vuelto al contenido de
+  `main` por un artefacto de sincronización (CI, `pyproject.toml`, `.gitignore`, README,
+  CHANGELOG y SESSION_STATE). El stash previo se conservó sin aplicar.
+
+### Fase 2 — Cartera real multimercado: COMPLETADA
+
+- Mercados MIC, instrumentos con `uid`, ISIN opcional, cotizaciones y tipos de cambio con
+  procedencia y visibilidad por usuario.
+- Cuentas reales múltiples, separadas de la cartera simulada; movimientos de depósito,
+  retiro, compra, venta, dividendo, comisión, impuesto, ajuste, split y traspaso.
+- Migración `1a0119241c07` y pruebas de aislamiento.
+
+### Fase 3 — Rentabilidad y divisas: COMPLETADA
+
+- FIFO y coste medio, realizado/no realizado, dividendos netos, comisiones, impuestos,
+  XIRR, TWR, atribución precio/divisa, consolidado por moneda base.
+- Cálculos con `Decimal` y ejemplos numéricos verificables.
+
+### Fase 4 — Registro: COMPLETADA (OCR condicionado al entorno)
+
+- Formulario manual validado contra el libro completo.
+- Importación CSV/XLSX con mapeo, vista previa, duplicados y confirmación total/parcial.
+- Documentos privados, validación de firma, OCR local y confirmación humana.
+- Limitación: Tesseract no está instalado en este workspace; el contenedor lo incluye.
+
+### Fase 5 — Datos financieros automáticos: COMPLETADA
+
+- **Divisas (integración real verificada):** Frankfurter v2 como fuente primaria
+  (sin clave, 228 monedas, cubre BOB vía BCBO) y ExchangeRate-API como segunda fuente
+  para detectar divergencias. Calidad `close`, fecha de calendario del dato, `kind`
+  (oficial/referencia/mercado), caché con TTL, divergencias registradas sin unificar tasas.
+- **Precios históricos (integración real verificada):** StockAnalysis para US/DE/ES/GB
+  (AAPL, SAP, SAN, VOD comprobados en vivo); cierres diarios con cierre sin ajustar y
+  ajustado en identidades de fuente distintas. Mercados fuera de cobertura fallan con
+  error explícito, sin sustituir el dato.
+- **Fundamentales:** SEC EDGAR `companyfacts` para emisores con CIK; solo métricas
+  publicadas por el emisor (ingresos, beneficio neto, EPS diluido, caja, deuda LP y
+  acciones). EBITDA y FCF quedan en `null` en lugar de calcularse y presentarse como reportados.
+- **Noticias/eventos:** sin proveedor con licencia clara → `configured: false` declarado;
+  la API devuelve `available: false` con motivo, sin contenido inventado.
+- **Arquitectura:** paquete `app/services/data/` (adaptadores, `HttpFetcher` con timeout,
+  reintentos acotados y backoff, `DataSyncService` con runs/caché/anomalías,
+  `DataSyncRunner` con anti-duplicados y recuperación, `status` para la interfaz),
+  API `/api/v1/data/*` y página `/datos` en la PWA; indicador de calidad en cartera real.
+- **Migración** `2b7d5f3a91e4` (tablas `provider_runs`, `data_cache`, `fundamentals`,
+  `news_items` + columnas `quotes.adjusted`, `fx_rates.kind`, `instruments.auto_sync_prices`).
+- **Planificador apagado por defecto** (`NEXO_DATA_SYNC_INTERVAL_MINUTES=0`): sin
+  tráfico externo automático sin consentimiento.
+- 490 pruebas: 489 aprobadas, 1 omitida (red).
+
+### Fases 6 a 10 — Pendientes
+
+5. **Datos (resto):** dividendos, eventos, calendarios y noticias requieren un proveedor
+   con licencia clara; ampliar la cobertura de precios más allá de US/DE/ES/GB (LATAM sin
+   cobertura declarada, no rellenada).
+6. **Automatización:** cola compartida para varias réplicas (Redis/RQ, Celery o
+   Dramatiq), scheduler de alertas, notificaciones PWA/Android. La recopilación de datos
+   ya tiene `DataSyncRunner` en proceso con recuperación y anti-duplicados.
+7. **Inteligencia:** oportunidades por horizonte, Risk Analyst, seguimiento de tesis con
+   versiones e informes comparables.
+8. **Backtesting:** multi-activo, divisas, liquidez, benchmark, walk-forward y corrección
+   por comparaciones múltiples.
+9. **Aplicación:** secciones Mercados, Watchlist, Oportunidades, Alertas, Tesis; Capacitor
+   con cámara, archivos y notificaciones; APK probado en dispositivo/emulador.
+10. **Producción:** backups verificados, monitorización, secretos, revisión legal/tributaria
+    de Bolivia y costes.
+
 ## Prioridades inmediatas
 
 - **Fuente primaria realmente independiente** (documento original en HTML de la SEC, otro

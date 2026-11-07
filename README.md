@@ -9,7 +9,7 @@ para evaluar una empresa.
 
 ## Estado actual
 
-Versión: 0.3.0 · Rama: `main` · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial)
+Versión: 2.0.0 (plataforma multimercado) · motor financiero 0.3.0 · Fuentes conectadas: **SEC EDGAR** (primaria, oficial y gratuita), **Nasdaq** (segunda fuente de distribución) y **Yahoo Finance** (precios, no oficial) · Datos automáticos: **Frankfurter** y **ExchangeRate-API** (divisas), **StockAnalysis** (precios históricos US/DE/ES/GB) y **SEC companyfacts** (fundamentales con CIK)
 
 Lo que hoy funciona de verdad:
 
@@ -42,10 +42,102 @@ Lo que hoy funciona de verdad:
   oficial**), con costes, separación desarrollo/evaluación y una prueba automática de
   ausencia de sesgo de anticipación.
 - Informes Markdown reproducibles con trazabilidad fuente → dato → cálculo → conclusión.
+- **Datos financieros automáticos (fase 5):** divisas con dos fuentes reales (Frankfurter
+  primario, cubre BOB, y ExchangeRate-API para detectar divergencias), precios históricos
+  diarios reales en US/DE/ES/GB (StockAnalysis) y fundamentales de SEC EDGAR para emisores
+  con CIK. Cada dato lleva fuente, fecha del dato, fecha de consulta y calidad; la
+  sincronización se lanza desde `/datos` o por API, con caché, reintentos acotados y
+  ejecución en segundo plano. La automatización programada está **apagada por defecto** y
+  las noticias se declaran sin proveedor en lugar de inventarse.
 
 Lo que **no** está: fuente primaria independiente de la propia empresa (Nasdaq
 repite el mismo documento presentado), precios verificados de mercados oficiales,
-comparables reales, señales tácticas, cartera personal y recomendaciones de inversión.
+comparables reales, señales tácticas y recomendaciones de inversión.
+
+## Cartera real multimercado (v2.0)
+
+La plataforma incorpora un registro contable de inversiones **reales** separado de la
+cartera simulada. No ejecuta órdenes ni guarda credenciales de brókers: es una herramienta
+de seguimiento, registro y análisis.
+
+- **Identidad multimercado:** mercados con código MIC, instrumentos con identificador
+  interno estable (`uid`), símbolo, bolsa, país, moneda, tipo e ISIN. El ticker no es un
+  identificador global.
+- **Cuentas reales** con bróker, país, moneda base, comisión y método contable (FIFO o coste
+  medio). Varias cuentas por usuario y consolidado por moneda base, sin sumar divisas a
+  ciegas.
+- **Movimientos:** depósitos, retiros, compras, ventas, dividendos, comisiones, impuestos,
+  ajustes, splits y traspasos. Cada uno guarda divisa, tipo de cambio histórico, fuente,
+  fecha y estado de validación. Los importes se calculan con `Decimal`.
+- **Rentabilidad:** FIFO y coste medio, ganancias realizadas y no realizadas, dividendos
+  netos, comisiones, impuestos, XIRR y TWR cuando hay datos suficientes. El efecto
+  cambiario se separa del efecto precio; una posición sin cotización queda *sin valorar*.
+- **Registro:** formulario manual validado, importación CSV/XLSX con mapeo, vista previa,
+  duplicados y confirmación, y documentos privados con OCR local (Tesseract) y revisión
+  humana obligatoria.
+- **Trazabilidad:** cotizaciones y tipos de cambio con fuente, fecha del dato y calidad
+  (tiempo real, retrasado, cierre, histórico, estimado). Las cotizaciones manuales son
+  privadas: no pueden alterar la cartera de otro usuario. La calidad de cada cierre
+  aparece en la cartera (`quote_quality`), junto a fuente y fecha.
+
+Sigue **sin** haber ejecución de órdenes, conexión con brókers, proveedor automático de
+noticias/eventos, APK Android ni garantía de que un precio sea el tape oficial. El OCR
+requiere el binario `tesseract-ocr` en el servidor. Ver [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md).
+
+## Plataforma web, móvil y multi-IA (v1.0)
+
+Sobre el motor se construyó un producto completo, con backend, base de datos y PWA:
+
+- **API FastAPI versionada** (`/api/v1`) con autenticación por token, aislamiento por
+  usuario, errores uniformes, límites de peticiones y documentación OpenAPI en `/docs`.
+- **Persistencia** SQLAlchemy 2 + Alembic: usuarios, sesiones, empresas, instantáneas,
+  trabajos, informes, cartera simulada, consumo y auditoría. SQLite en desarrollo,
+  PostgreSQL en producción.
+- **Orquestador multi-IA** independiente del proveedor (OpenAI y compatibles, Anthropic,
+  Gemini, modelos locales): cinco roles —investigador, analista, auditor, contrario y
+  coordinador—, presupuesto por trabajo, reintentos, cancelación y recuperación tras
+  reinicios. Sin claves funciona en **modo básico**: informe del motor, sin texto inventado.
+- **Auditoría de evidencia** determinista: cada cifra citada por la IA se contrasta con el
+  expediente; las que no tienen respaldo se marcan en el informe.
+- **Informe de 18 secciones** con etiquetas por sección (hecho, fuente, interpretación de
+  IA, supuesto, estimación, no disponible) y exportación a Markdown, CSV y HTML imprimible.
+- **Cartera simulada**: compras y ventas ficticias, coste medio, beneficio realizado y no
+  realizado. Sin dinero real ni órdenes.
+- **PWA instalable**: manifest, iconos, service worker propio y página offline. El service
+  worker **no cachea** `/api`: las cifras financieras no quedan en el dispositivo.
+
+Arquitectura, decisiones, tabla de endpoints y límites: [`docs/PLATFORM.md`](docs/PLATFORM.md).
+
+### Arranque rápido
+
+```bash
+# 1. Backend
+pip install -e "[dev]"
+alembic upgrade head
+export NEXO_SEC_CONTACT="tu-correo@dominio.com"
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+# API y documentación: http://localhost:8000/docs
+
+# 2. Interfaz (otra terminal)
+cd web && npm install && npm run dev     # http://localhost:5173 con proxy a /api
+
+# 3. Build servido por el propio backend
+cd web && npm run build                  # genera web/dist; FastAPI lo sirve en /
+```
+
+Docker (API + PostgreSQL + PWA en una sola imagen):
+
+```bash
+docker compose up -d --build
+```
+
+### Pruebas
+
+```bash
+pytest              # 461 pruebas recolectadas: 460 aprobadas, 1 omitida (red), sin red
+ruff check src app tests
+cd web && npm run typecheck && npm run build
+```
 
 ## Instalación
 
@@ -54,15 +146,18 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"      # o: python3 -m pip install -e ".[dev]"
 ```
 
-El proyecto **no tiene dependencias de ejecución**: solo la biblioteca estándar de Python
-(3.10 o superior). El extra `[dev]` añade `pytest` y `ruff`. Verificado el 2026-10-31 en un
-entorno virtual aislado a partir de una copia limpia del repositorio.
+El motor financiero sigue sin dependencias externas. El backend necesita el extra `api`
+(FastAPI, SQLAlchemy, Alembic, OCR local e importación XLSX) y el extra `dev` añade además
+`pytest` y `ruff`. Para producción usa `requirements.txt`, que incluye el driver de
+PostgreSQL. En el contenedor se instala `tesseract-ocr` con el paquete de español.
 
 ## Integración continua
 
 `.github/workflows/ci.yml` ejecuta en cada Pull Request y en cada push a `main`: instalación
 editable del paquete, `ruff check`, importación de todos los módulos, la suite de pruebas y
-una comprobación de la CLI, sobre Python 3.10 y 3.12.
+una comprobación de la CLI, sobre Python 3.10 y 3.12. Además, el job `web` hace typecheck y
+build de la interfaz y el job `e2e` instala Chromium y ejecuta la suite de Playwright en
+escritorio y móvil, publicando trazas, capturas, vídeos e informe HTML como artefacto.
 
 ## Uso
 
@@ -160,3 +255,40 @@ Detalle completo en `docs/KNOWN_ISSUES.md`.
 Este software no constituye asesoramiento financiero personalizado ni garantía de
 rentabilidad. No ejecuta órdenes ni utiliza dinero real. Sus conclusiones son herramientas
 de análisis, no recomendaciones de inversión.
+
+## Validación E2E y seguridad (fases 1.2 y 1.3)
+
+La rama `feat/platform-v1` (PR #2 hacia `main`) incluye una suite end-to-end con
+Playwright y Chromium real, ejecutada en dos proyectos: escritorio (1440×900) y móvil
+(Pixel 7).
+
+La suite arranca por sí misma el backend FastAPI con una base SQLite desechable
+(`var/e2e/`) y el servidor de Vite en un puerto propio; no toca la base de desarrollo
+ni requiere servicios externos. Cubre autenticación, protección de rutas, panel,
+empresas, investigación, informes, ajustes, cartera simulada y cartera real, más
+comprobaciones de seguridad (autorización en API, aislamiento entre usuarios,
+revocación de sesión, ausencia de secretos en la interfaz) y de móvil (menú, barra
+inferior, formularios y desbordamiento horizontal).
+
+```bash
+# Requisitos: Node 22, Python con el backend instalado y Chromium de Playwright
+cd web
+npm ci
+npx playwright install --with-deps chromium
+npm run e2e          # 38 casos por proyecto; informes en web/playwright-report/
+```
+
+**Identidad de cliente y proxies.** Los límites de intentos usan la IP de la conexión
+TCP. `X-Forwarded-For` solo se interpreta si la conexión llega de una red declarada en
+`NEXO_TRUSTED_PROXIES` (IP o CIDR, separadas por comas); la cadena se recorre de derecha
+a izquierda y se descarta entera si contiene algo que no sea una dirección válida. Sin
+esa variable, un cliente directo no puede falsificar su IP para esquivar un límite. En
+producción detrás de nginx o Traefik hay que declarar el proxy: `NEXO_TRUSTED_PROXIES=127.0.0.1,::1`
+si está en el mismo host.
+
+El workflow `.github/workflows/ci.yml` incluye el job `e2e`, que instala Chromium con
+sus dependencias de sistema, ejecuta typecheck, build y la suite completa, y publica
+trazas, capturas, vídeos e informe HTML como artefacto.
+
+Ver [`docs/E2E_VALIDATION.md`](docs/E2E_VALIDATION.md) para arquitectura, rutas
+cubiertas, resultados exactos, defectos detectados, pendientes y limitaciones.

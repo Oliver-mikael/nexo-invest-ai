@@ -1,5 +1,192 @@
 # CHANGELOG — Nexo Invest AI
 
+## 2.0.1 — 2026-11-07 (validación en navegador y endurecimiento de seguridad)
+
+Integrado en `feat/platform-v1` (PR #2 hacia `main`) por fast-forward sobre `f5b87c4`.
+`main` sin tocar.
+
+### Validación E2E (fase 1.2)
+
+- Suite de Playwright ampliada a 38 casos por proyecto (escritorio 1440×900 y Pixel 7):
+  autenticación, protección de 13 rutas privadas, navegación del shell, estado real de cada
+  pantalla, seguridad y diseño móvil. Backend y Vite propios, base SQLite desechable en
+  `var/e2e/`, sin proveedores de IA ni trabajos de fondo.
+- Job `e2e` en GitHub Actions con Chromium y publicación de trazas, capturas, vídeos e
+  informe HTML cuando algo falla.
+- Defecto corregido: el formulario de creación de cartera usaba `step=1000` con `min=100`,
+  así que el valor por defecto incumplía la validación y el navegador bloqueaba el envío.
+- Prueba de datos de mercado desacoplada del reloj (usaba fechas fijas frente a un umbral de
+  5 días).
+
+### Seguridad y sesiones (fase 1.3)
+
+- `X-Forwarded-For` deja de ser una identidad elegible por el cliente: solo se interpreta
+  desde redes declaradas en `NEXO_TRUSTED_PROXIES`, recorriendo la cadena de derecha a
+  izquierda y descartándola si es inválida. 21 pruebas nuevas, incluida la evasión del
+  límite extremo a extremo.
+- Sesión confirmada antes de responder en registro, acceso y cierre de sesión: elimina el
+  401 intermitente en la petición inmediatamente posterior al registro (causa real de la
+  intermitencia atribuida al logout).
+- El navegador cierra la sesión local antes de pedir la revocación y descarta respuestas de
+  `/auth/me` que lleguen tarde.
+
+## 2.0.0 — 2026-10-31 (Ciclo 6: cartera real multimercado)
+
+Evolución sobre la plataforma 1.0 sin reescribir el motor financiero ni la cartera simulada.
+La rama es `feat/multi-market-real-money`; `main` y el PR #2 no se han tocado.
+
+### Datos financieros automáticos (fase 5 · 2026-11-02)
+
+- **Divisas integradas con dos fuentes reales:** Frankfurter v2 como primaria (sin clave,
+  228 monedas, BOB vía BCBO) y ExchangeRate-API como segunda opinión; divergencias >3 %
+  registradas como anomalía sin unificar las tasas. Calidad `close`, fecha del dato y
+  `kind` (oficial/referencia/mercado) en `fx_rates`.
+- **Precios históricos reales** con StockAnalysis (US/DE/ES/GB verificados en vivo):
+  cierres diarios con columna ajustada guardada aparte (`quotes.adjusted`, fuente
+  `:adj`); mercados no soportados fallan con error explícito.
+- **Fundamentales de SEC EDGAR** (`companyfacts`) para emisores con CIK: solo métricas
+  reportadas (ingresos, beneficio, EPS diluido, caja, deuda LP, acciones); EBITDA y FCF
+  quedan en `null` en lugar de presentarse calculados como reportados.
+- **Noticias/eventos sin proveedor con licencia clara:** `configured: false` y
+  `GET /data/news` con `available: false`; `news_items` preparada en el esquema.
+- **Arquitectura:** paquete `app/services/data/` con adaptadores modulares, `HttpFetcher`
+  (timeout, reintentos acotados, backoff, errores tipados), `DataSyncService` (runs,
+  caché con TTL, no sobrescritura sin `force`, deduplicación por restricción única) y
+  `DataSyncRunner` (cola ligera con recuperación, anti-duplicados y planificador apagado
+  por defecto). Sin Redis/Celery (DECISIONS #57).
+- **API:** `GET /data/status|providers|runs|fx-rates|fundamentals|news`,
+  `POST /data/sync/fx|prices|fundamentals` (en segundo plano por defecto) y
+  `POST /data/instruments/{uid}/auto-sync`.
+- **Interfaz:** página `/datos` (proveedores, frescura, ejecuciones, automatización,
+  noticias) e indicador de `quote_quality` en las posiciones de la cartera real.
+- **Migración** `2b7d5f3a91e4`: tablas `provider_runs`, `data_cache`, `fundamentals`,
+  `news_items` y columnas `quotes.adjusted`, `fx_rates.kind`, `instruments.auto_sync_prices`.
+- **Pruebas:** 490 recolectadas, 489 aprobadas, 1 omitida (red); 29 nuevas sin red con
+  `httpx.MockTransport`. Integraciones live verificadas el 2026-11-02 (ver VALIDATION.md).
+
+### Modelo multimercado
+
+- Mercados con código MIC y moneda (`markets`); instrumentos con `uid` estable, símbolo,
+  mercado, país, divisa, tipo, ISIN y CIK opcional (`instruments`). La unicidad es
+  `(mercado, símbolo)`, no el ticker global.
+- Cotizaciones y tipos de cambio con fuente, fecha del dato, fecha de consulta y calidad
+  (`realtime`, `delayed`, `close`, `historical`, `estimated`).
+- Cotizaciones/tipos manuales privados por usuario; los datos de proveedor quedan globales
+  con `user_id` nulo.
+- Mercados de referencia sembrados de forma idempotente al arrancar.
+
+### Cartera real y contabilidad
+
+- `real_accounts` y `real_movements`, independientes de `portfolios`/`trades`.
+- Depósitos, retiros, compras, ventas, dividendos, comisiones, impuestos, ajustes, splits y
+  traspasos; cada movimiento guarda divisa, tipo de cambio histórico, fuente, fecha y estado.
+- Motor `app/services/accounting.py` con `Decimal`: FIFO y coste medio en paralelo,
+  realizado/no realizado, dividendos netos, comisiones, impuestos, atribución precio/divisa,
+  XIRR, TWR, valoración con datos faltantes explícitos y traspasos a coste.
+- Efectivo en moneda base convertido con el cambio histórico de cada movimiento; nunca se
+  recalcula una operación antigua con el cambio actual.
+- Consolidado por moneda base con distribución por mercado, país, tipo y divisa. No se suman
+  divisas distintas sin tipo explícito.
+
+### Registro
+
+- Formulario manual validado contra el libro completo (sin sobregiros, ventas en corto no
+  autorizadas ni duplicados).
+- Importación CSV/TXT/XLSX con detección de columnas, mapeo manual, orden de fecha explícito,
+  vista previa, detección de duplicados y confirmación total o parcial. La vista previa no
+  escribe movimientos.
+- Documentos privados con validación de firma real, límite de tamaño, SHA-256 y descarga
+  autenticada.
+- OCR local (`pypdf`/Tesseract) que devuelve campos propuestos con `review_required`; el
+  movimiento solo se crea en una confirmación humana separada. Sin Tesseract, 503 explícito.
+
+### API, interfaz y despliegue
+
+- Nuevos routers `/markets`, `/instruments`, `/fx-rates`, `/real/accounts`, `/real/overview`,
+  `/real/performance`, importaciones y documentos; errores uniformes y límites por ruta.
+- PWA: página `/cartera-real` con resumen, posiciones, movimientos, importación y documentos;
+  dashboard con consolidado por divisa; navegación actualizada.
+- Dockerfile instala `tesseract-ocr` y `tesseract-ocr-spa`; compose añade volumen privado de
+  documentos. `env.example` documenta las variables nuevas.
+- Migración `1a0119241c07` verificada con upgrade/check/downgrade/upgrade.
+
+### Pruebas
+
+- **461 recolectadas: 460 aprobadas, 1 omitida (red).** Ruff limpio. TypeScript y build de la
+  PWA correctos (58 módulos).
+- Nuevas: motor contable (10), API real/aislamiento/importación/documentos (11), importación y
+  OCR (5).
+
+### Limitaciones declaradas
+
+- Proveedores automáticos: divisas, precios históricos (US/DE/ES/GB) y fundamentales (CIK)
+  integrados; **siguen sin proveedor** dividendos, noticias, eventos y calendarios. Planificador
+  de recopilación apagado por defecto; sin cola compartida ni alertas/notificaciones.
+- OCR real no verificado en este workspace por falta del binario; el contenedor lo incluye.
+- Sin APK/Capacitor probado; sin pruebas de navegador; SQLite no es contabilidad exacta de
+  almacenamiento (producción: PostgreSQL).
+- Sin ejecución de órdenes ni credenciales de brókers. Sin investigación legal/tributaria de
+  Bolivia.
+
+## 1.0.0 — 2026-10-31 (Ciclo 5: plataforma web, móvil y multi-IA)
+
+Transformación del motor verificable en un producto ejecutable, sin reescribir el motor
+ni debilitar sus pruebas.
+
+### Backend y API
+
+- `app/` — API FastAPI v1 con autenticación por token opaco, aislamiento por usuario,
+  errores uniformes (`{"error": {code, message, details}}`), límites de peticiones,
+  documentación OpenAPI y CORS configurable.
+- `app/services/engine.py` — fachada del motor: serializa métricas, series, escenarios y
+  sensibilidad; calcula valoraciones con supuestos del usuario sin duplicar fórmulas.
+- `app/services/research.py` — informe de 18 secciones con etiqueta de base por sección y
+  auditoría de cifras.
+- `app/services/jobs.py` — cola persistente en base de datos, recuperación tras reinicio,
+  cancelación cooperativa, reintentos acotados y control de presupuesto.
+- `app/services/portfolio.py` — cartera simulada con coste medio, beneficio realizado y
+  validación de efectivo/posición en el servidor.
+- `app/services/export.py` — Markdown, CSV y HTML imprimible (sin dependencias nuevas).
+- `app/models.py` + `migrations/` — esquema con Alembic (13 tablas) verificado con
+  `upgrade`, `check` y `downgrade`.
+
+### Orquestador multi-IA
+
+- `app/ai/` — interfaz común de proveedores, adaptadores OpenAI (y compatibles),
+  Anthropic, Gemini y local, más `FakeProvider` para pruebas.
+- Perfiles `basic` (sin IA), `standard` y `deep`; cinco roles con presupuesto por trabajo,
+  reintentos, timeouts y registro de tokens/coste por rol.
+- `app/ai/audit.py` — auditoría determinista: cifras del texto que no rastrean al
+  expediente se marcan (tolerancia 2 % en importes, 1 pp en porcentajes).
+
+### Interfaz web y PWA
+
+- `web/` — React 18 + TypeScript + Vite + Tailwind. Paneles de inicio, explorador,
+  análisis con calculadora DCF y sensibilidad, centro de investigación con seguimiento en
+  vivo, informes con auditoría, cartera simulada y ajustes.
+- PWA: manifest, iconos 192/512/maskable generados sin dependencias, service worker con
+  política explícita (API solo red) y página offline.
+- Responsive con navegación inferior en móvil y estados de conexión/sincronización.
+
+### Pruebas y despliegue
+
+- 37 pruebas nuevas de plataforma (`tests/platform/`), sin red y con base temporal: auth,
+  aislamiento, análisis, valoración, investigación con proveedor simulado, auditoría,
+  presupuesto, cancelación, cartera, exportaciones y recuperación de trabajos.
+- Total: **434 pruebas en verde, 1 omitida**; Ruff limpio en `src`, `app` y `tests`.
+- CI ampliado: motor en 3.10/3.12, migraciones, arranque de la API, typecheck y build de
+  la PWA con verificación de artefactos.
+- `Dockerfile` multi-stage, `docker-compose.yml` (API + PostgreSQL), `env.example` sin
+  secretos y `docs/PLATFORM.md` con arquitectura, endpoints y límites.
+
+### Limitaciones nuevas declaradas
+
+- Cola y límite de peticiones en proceso: una sola réplica sin Redis.
+- Sin pruebas de navegador automatizadas ni APK; la PWA es instalable pero no se empaquetó
+  con Capacitor.
+- El precio de mercado de la calculadora es opcional y lo aporta el usuario; no se usa
+  Yahoo para el margen de seguridad.
+
 ## No publicado — 2026-10-31 (Ciclo 4: integridad del repositorio)
 
 Objetivo: que el repositorio contenga el proyecto completo y que lo que se publique sea
