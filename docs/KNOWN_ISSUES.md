@@ -93,6 +93,20 @@ se mantienen y se listan a continuación.
 - El hosting de Freebuff compila con Node, no con Python: el producto no se despliega ahí como
   servicio web. El entregable es la CLI y los informes que genera.
 
+## Seguridad de red y sesiones
+
+- **Los límites por IP necesitan conocer el proxy.** La identidad del cliente sale de la
+  conexión TCP; `X-Forwarded-For` solo se cree si la conexión llega de una red declarada en
+  `NEXO_TRUSTED_PROXIES`. Desplegado detrás de nginx, Traefik o un balanceador sin declarar
+  esa variable, todos los clientes comparten el cupo de la IP del proxy: el límite se vuelve
+  más estricto, nunca más laxo. Es el comportamiento seguro por defecto.
+- **Cerrar sesión revoca la sesión actual, no todas.** El resto de dispositivos siguen
+  autenticados hasta su TTL (`NEXO_SESSION_TTL_HOURS`, 72 h por defecto). No hay botón de
+  «cerrar todas las sesiones» ni revocación al cambiar la contraseña.
+- **El cierre de sesión local no depende de la red.** El navegador elimina el token antes de
+  llamar al servidor; si la revocación falla, el token caduca por TTL en el servidor y el
+  usuario queda fuera en ese navegador de inmediato.
+
 ## Datos y procedencia
 
 - **La corroboración sigue sin ser una fuente primaria independiente.** Desde el Ciclo 3

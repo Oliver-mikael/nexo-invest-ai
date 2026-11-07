@@ -1,5 +1,35 @@
 # CHANGELOG — Nexo Invest AI
 
+## 2.0.1 — 2026-11-07 (validación en navegador y endurecimiento de seguridad)
+
+Integrado en `feat/platform-v1` (PR #2 hacia `main`) por fast-forward sobre `f5b87c4`.
+`main` sin tocar.
+
+### Validación E2E (fase 1.2)
+
+- Suite de Playwright ampliada a 38 casos por proyecto (escritorio 1440×900 y Pixel 7):
+  autenticación, protección de 13 rutas privadas, navegación del shell, estado real de cada
+  pantalla, seguridad y diseño móvil. Backend y Vite propios, base SQLite desechable en
+  `var/e2e/`, sin proveedores de IA ni trabajos de fondo.
+- Job `e2e` en GitHub Actions con Chromium y publicación de trazas, capturas, vídeos e
+  informe HTML cuando algo falla.
+- Defecto corregido: el formulario de creación de cartera usaba `step=1000` con `min=100`,
+  así que el valor por defecto incumplía la validación y el navegador bloqueaba el envío.
+- Prueba de datos de mercado desacoplada del reloj (usaba fechas fijas frente a un umbral de
+  5 días).
+
+### Seguridad y sesiones (fase 1.3)
+
+- `X-Forwarded-For` deja de ser una identidad elegible por el cliente: solo se interpreta
+  desde redes declaradas en `NEXO_TRUSTED_PROXIES`, recorriendo la cadena de derecha a
+  izquierda y descartándola si es inválida. 21 pruebas nuevas, incluida la evasión del
+  límite extremo a extremo.
+- Sesión confirmada antes de responder en registro, acceso y cierre de sesión: elimina el
+  401 intermitente en la petición inmediatamente posterior al registro (causa real de la
+  intermitencia atribuida al logout).
+- El navegador cierra la sesión local antes de pedir la revocación y descarta respuestas de
+  `/auth/me` que lleguen tarde.
+
 ## 2.0.0 — 2026-10-31 (Ciclo 6: cartera real multimercado)
 
 Evolución sobre la plataforma 1.0 sin reescribir el motor financiero ni la cartera simulada.

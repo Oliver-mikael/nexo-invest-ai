@@ -155,7 +155,9 @@ PostgreSQL. En el contenedor se instala `tesseract-ocr` con el paquete de españ
 
 `.github/workflows/ci.yml` ejecuta en cada Pull Request y en cada push a `main`: instalación
 editable del paquete, `ruff check`, importación de todos los módulos, la suite de pruebas y
-una comprobación de la CLI, sobre Python 3.10 y 3.12.
+una comprobación de la CLI, sobre Python 3.10 y 3.12. Además, el job `web` hace typecheck y
+build de la interfaz y el job `e2e` instala Chromium y ejecuta la suite de Playwright en
+escritorio y móvil, publicando trazas, capturas, vídeos e informe HTML como artefacto.
 
 ## Uso
 
@@ -254,10 +256,11 @@ Este software no constituye asesoramiento financiero personalizado ni garantía 
 rentabilidad. No ejecuta órdenes ni utiliza dinero real. Sus conclusiones son herramientas
 de análisis, no recomendaciones de inversión.
 
-## Validación E2E con navegador (Fase 1.2)
+## Validación E2E y seguridad (fases 1.2 y 1.3)
 
-La rama `feat/e2e-browser-validation` incluye una suite end-to-end con Playwright y
-Chromium real, ejecutada en dos proyectos: escritorio (1440×900) y móvil (Pixel 7).
+La rama `feat/platform-v1` (PR #2 hacia `main`) incluye una suite end-to-end con
+Playwright y Chromium real, ejecutada en dos proyectos: escritorio (1440×900) y móvil
+(Pixel 7).
 
 La suite arranca por sí misma el backend FastAPI con una base SQLite desechable
 (`var/e2e/`) y el servidor de Vite en un puerto propio; no toca la base de desarrollo
@@ -272,8 +275,16 @@ inferior, formularios y desbordamiento horizontal).
 cd web
 npm ci
 npx playwright install --with-deps chromium
-npm run e2e          # 35 casos por proyecto; informes en web/playwright-report/
+npm run e2e          # 38 casos por proyecto; informes en web/playwright-report/
 ```
+
+**Identidad de cliente y proxies.** Los límites de intentos usan la IP de la conexión
+TCP. `X-Forwarded-For` solo se interpreta si la conexión llega de una red declarada en
+`NEXO_TRUSTED_PROXIES` (IP o CIDR, separadas por comas); la cadena se recorre de derecha
+a izquierda y se descarta entera si contiene algo que no sea una dirección válida. Sin
+esa variable, un cliente directo no puede falsificar su IP para esquivar un límite. En
+producción detrás de nginx o Traefik hay que declarar el proxy: `NEXO_TRUSTED_PROXIES=127.0.0.1,::1`
+si está en el mismo host.
 
 El workflow `.github/workflows/ci.yml` incluye el job `e2e`, que instala Chromium con
 sus dependencias de sistema, ejecuta typecheck, build y la suite completa, y publica
