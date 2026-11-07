@@ -81,6 +81,10 @@ export default defineConfig({
         NEXO_DATA_SYNC_INTERVAL_MINUTES: "0",
         NEXO_ALERT_CHECK_INTERVAL_MINUTES: "0",
         NEXO_RATE_LIMIT_PER_MINUTE: "600",
+        // La suite actúa como proxy de confianza desde loopback para poder
+        // simular clientes distintos con X-Forwarded-For. En producción esta
+        // variable queda vacía salvo que haya un proxy real delante.
+        NEXO_TRUSTED_PROXIES: "127.0.0.1,::1",
         NEXO_WORKER_THREADS: "1",
         PYTHONUNBUFFERED: "1",
       },

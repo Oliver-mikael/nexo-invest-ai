@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import ipaddress
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from functools import lru_cache
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,12 +19,101 @@ from app.security import hash_token, limiter_for
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+
+# Una cadena de proxies más larga que esto no es creíble: se descarta entera.
+_MAX_FORWARDED_HOPS = 10
+
+
+@lru_cache(maxsize=8)
+def _trusted_networks(values: Tuple[str, ...]) -> Tuple[IPNetwork, ...]:
+    """Redes declaradas como proxies de confianza.
+
+    Una entrada mal escrita se ignora: nunca autoriza nada (fallo cerrado) y no
+    impide arrancar el servidor por un error de configuración.
+    """
+    networks: list[IPNetwork] = []
+    for raw in values:
+        try:
+            networks.append(ipaddress.ip_network(raw, strict=False))
+        except ValueError:
+            continue
+    return tuple(networks)
+
+
+def _parse_ip(raw: Optional[str]) -> Optional[IPAddress]:
+    """Convierte texto en dirección; admite `ip:puerto` y `[ipv6]:puerto`."""
+    if not raw:
+        return None
+    token = raw.strip().strip('"')
+    if not token:
+        return None
+    if "%" in token:  # zona de interfaz (fe80::1%eth0): no forma parte de la IP
+        token = token.split("%", 1)[0]
+    if token.startswith("[") and "]" in token:
+        token = token[1 : token.index("]")]
+    elif token.count(":") == 1:
+        host, _, port = token.partition(":")
+        if port.isdigit():
+            token = host
+    try:
+        address = ipaddress.ip_address(token)
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
+
+
+def _is_trusted(address: IPAddress, networks: Sequence[IPNetwork]) -> bool:
+    for network in networks:
+        try:
+            if address in network:
+                return True
+        except TypeError:  # familia distinta (IPv4 frente a red IPv6)
+            continue
+    return False
+
 
 def client_key(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "desconocido"
+    """Identidad de red del cliente para límites de peticiones y auditoría.
+
+    Reglas deliberadas:
+
+    1. Sin proxies configurados en `NEXO_TRUSTED_PROXIES`, manda la IP de la
+       conexión TCP y `X-Forwarded-For` se ignora por completo: un cliente
+       directo no puede elegir su propia identidad ni esquivar un límite.
+    2. La cabecera solo se interpreta si la conexión llega desde un proxy
+       declarado. Se recorre de derecha a izquierda descartando los saltos de
+       confianza, que es el orden en el que los proxies añaden direcciones.
+    3. Si algún salto no es una IP válida, la cabecera se descarta entera y se
+       usa la IP de la conexión: nunca se propaga texto arbitrario como clave.
+    """
+    peer = _parse_ip(request.client.host) if request.client else None
+    if peer is None:
+        return "desconocido"
+    settings = getattr(request.app.state, "settings", None)
+    networks = _trusted_networks(tuple(getattr(settings, "trusted_proxies", ()) or ()))
+    if not networks or not _is_trusted(peer, networks):
+        return str(peer)
+
+    header = request.headers.get("x-forwarded-for")
+    if not header:
+        return str(peer)
+    hops = [hop for hop in (chunk.strip() for chunk in header.split(",")) if hop]
+    if not hops or len(hops) > _MAX_FORWARDED_HOPS:
+        return str(peer)
+    chain: list[IPAddress] = []
+    for hop in hops:
+        address = _parse_ip(hop)
+        if address is None:
+            return str(peer)
+        chain.append(address)
+    for address in reversed(chain):
+        if not _is_trusted(address, networks):
+            return str(address)
+    return str(chain[0])
 
 
 def _active_token(

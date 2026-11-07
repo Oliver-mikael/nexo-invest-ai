@@ -119,6 +119,12 @@ class Settings:
     research_jobs_per_hour: int = 10
     max_concurrent_jobs_per_user: int = 2
 
+    # Fase 1.3: proxies de confianza (IP o CIDR) para interpretar
+    # X-Forwarded-For. Vacío significa que la cabecera nunca se cree: la
+    # identidad del cliente es siempre la IP de la conexión TCP, así que un
+    # cliente directo no puede falsificarla para esquivar un límite.
+    trusted_proxies: List[str] = field(default_factory=list)
+
     default_job_budget_usd: float = 0.50
     max_job_budget_usd: float = 5.00
     monthly_budget_usd: float = 10.00
@@ -282,6 +288,11 @@ def load_settings() -> Settings:
         allow_registration=_env_bool("NEXO_ALLOW_REGISTRATION", True),
         cors_origins=origins or ["*"],
         rate_limit_per_minute=_env_int("NEXO_RATE_LIMIT_PER_MINUTE", 120),
+        trusted_proxies=[
+            proxy.strip()
+            for proxy in _env("NEXO_TRUSTED_PROXIES").split(",")
+            if proxy.strip()
+        ],
         research_jobs_per_hour=_env_int("NEXO_JOBS_PER_HOUR", 10),
         max_concurrent_jobs_per_user=_env_int("NEXO_MAX_CONCURRENT_JOBS", 2),
         default_job_budget_usd=_env_float("NEXO_DEFAULT_JOB_BUDGET_USD", 0.50),
