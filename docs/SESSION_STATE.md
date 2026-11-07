@@ -1,7 +1,7 @@
 # Estado de la sesión — Nexo Invest AI 2.0Fecha: 2026-11-07 · Plataforma 2.0.1 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
 Rama de trabajo: `feat/platform-v1` (PR #2, abierto y **sin fusionar**)
-Base remota: `f5b87c4`; integración por fast-forward hasta `8cb6257` (16 commits en el PR)
+Base remota: `f5b87c4`; integración por fast-forward (PR #2 abierto, sin fusionar)
 
 `main` sigue en `84585a2`: no se ha modificado ni se ha fusionado ningún PR.
 

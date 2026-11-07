@@ -208,8 +208,12 @@ la suite levanta backend y Vite.
 
 ### Ejecución real en GitHub Actions
 
-Run [42397855482](https://github.com/Oliver-mikael/nexo-invest-ai/actions/runs/42397855482)
-sobre `2854d58`, PR #2 (`feat/platform-v1` → `main`): **4 jobs, todos en verde**.
+Runs [42397855482](https://github.com/Oliver-mikael/nexo-invest-ai/actions/runs/42397855482),
+[42398092247](https://github.com/Oliver-mikael/nexo-invest-ai/actions/runs/42398092247) y
+[42398334070](https://github.com/Oliver-mikael/nexo-invest-ai/actions/runs/42398334070)
+sobre la rama del PR #2 (`feat/platform-v1` → `main`): **4 jobs en verde en cada uno**.
+La primera ejecución corresponde al código en `2854d58`, antes de los commits de
+documentación.
 
 | Job | Resultado | Duración |
 |-----|-----------|----------|
