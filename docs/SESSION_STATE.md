@@ -1,9 +1,9 @@
-# Estado de la sesión — Nexo Invest AI 2.0
-
-Fecha: 2026-11-02 · Plataforma 2.0.0 · Motor 0.3.0
+# Estado de la sesión — Nexo Invest AI 2.0Fecha: 2026-11-07 · Plataforma 2.0.1 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
-Rama de trabajo: `feat/multi-market-real-money` (independiente de `main`)
-Base: `f5b87c4` (PR #2, abierto y **sin fusionar**)
+Rama de trabajo: `feat/platform-v1` (PR #2, abierto y **sin fusionar**)
+Base remota: `f5b87c4`; integración por fast-forward hasta `8cb6257` (16 commits en el PR)
+
+`main` sigue en `84585a2`: no se ha modificado ni se ha fusionado ningún PR.
 
 Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 
@@ -35,11 +35,12 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 | 3. Rentabilidad: FIFO/media, TWR, XIRR, divisas | Completada |
 | 4. Registro manual, CSV/XLSX y OCR con confirmación | Completada; OCR real condicionado a Tesseract |
 | 5. Datos financieros automáticos y multimercado | Completada: divisas, precios históricos y fundamentales reales; noticias sin proveedor declarado |
-| 6. Workers, scheduler y alertas | Pendiente |
-| 7. Multiagentes por horizonte y tesis versionadas | Pendiente |
-| 8. Backtesting multimercado | Pendiente |
-| 9. Interfaz completa, watchlist, oportunidades y Android | Parcial: cartera real; APK no generado |
+| 6. Workers, scheduler y alertas | Completada: planificador persistente y worker independiente |
+| 7. Multiagentes por horizonte y tesis versionadas | Completada: investigación multiagente con tesis y oportunidades |
+| 8. Backtesting multimercado | Completada: motor determinista con costes, divisas y walk-forward |
+| 9. Interfaz completa, watchlist, oportunidades y Android | Completada la interfaz (seguimiento, alertas, tesis, backtests, tareas); APK no generado |
 | 10. Producción, backups, monitorización y Bolivia | Pendiente |
+| 11. Validación E2E en navegador y endurecimiento de seguridad (fases 1.2 y 1.3) | Completada y verificada en CI |
 
 No se presenta ninguna fase pendiente como terminada.
 
@@ -95,20 +96,27 @@ Tablas de datos automáticos (fase 5): `provider_runs`, `data_cache`, `fundament
 
 ```bash
 python3 -m pytest
-# 490 tests collected · 489 passed · 1 skipped (red) · 1 warning
-# StarletteDeprecationWarning por httpx/testclient; no afecta al resultado.
+# 543 passed, 1 skipped · 1 warning (StarletteDeprecationWarning por httpx/testclient)
 
 python3 -m ruff check src app tests
 # All checks passed!
 
 cd web && npm run typecheck && npm run build
-# typecheck OK; build OK: 59 módulos, JS 315,98 kB (92,00 kB gzip), CSS 29,54 kB (5,85 kB gzip)
+# typecheck OK; build OK: JS 357,86 kB (101,15 kB gzip), CSS 30,33 kB (5,98 kB gzip)
+
+npm run e2e
+# chromium-desktop: 33 passed, 5 skipped · chromium-mobile: 36 passed, 2 skipped
+# (38 casos por proyecto; los omitidos son exclusivos del otro viewport)
 
 rm -f var/migration.db
 NEXO_DATABASE_URL=sqlite:///./var/migration.db alembic upgrade head
 NEXO_DATABASE_URL=sqlite:///./var/migration.db alembic check
 # No new upgrade operations detected.
 ```
+
+Comprobado también en GitHub Actions sobre `2854d58` (run 42397855482) y `8cb6257`
+(run 42398092247): los cuatro jobs en verde —Python 3.10, Python 3.12, web y E2E con
+Chromium real— y el informe de Playwright publicado como artefacto.
 
 Pruebas nuevas destacadas:
 
@@ -167,10 +175,27 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
    fiscales; requiere trabajo documental y asesoría profesional, no código.
 10. `main` no se ha tocado, el PR #2 no se ha fusionado y no se ha desplegado nada.
 
+## Fases 1.2 y 1.3: validación en navegador y seguridad
+
+- **Suite E2E** (`web/tests/e2e/`, 38 casos por proyecto): autenticación, 13 rutas privadas,
+  navegación del shell, estado de cada pantalla, seguridad y móvil. Backend y Vite propios,
+  base SQLite desechable en `var/e2e/`, sin IA ni trabajos de fondo. Job `e2e` en CI con
+  Chromium y artefactos ante fallo.
+- **Identidad de cliente:** `X-Forwarded-For` solo se interpreta desde las redes declaradas
+  en `NEXO_TRUSTED_PROXIES`; la cadena se recorre de derecha a izquierda y se descarta si es
+  inválida. Sin esa variable, un cliente directo no puede falsificar su IP.
+- **Sesiones:** registro, acceso y cierre de sesión confirman la transacción antes de
+  responder; el 401 intermitente tras el registro (causa real de la intermitencia atribuida
+  al logout) queda eliminado. El navegador cierra la sesión local sin esperar a la red.
+- **Correcciones menores:** `step` del formulario de cartera y prueba de datos de mercado
+  dependiente del reloj.
+- Detalle completo en [`docs/E2E_VALIDATION.md`](E2E_VALIDATION.md).
+
 ## Próximo paso recomendado
 
-Fase 6: cola compartida (Redis/RQ o Celery) cuando haya varias réplicas, scheduler de
-alertas y notificaciones PWA/Android, reintentos con criterios de negocio y ampliación de
-la cobertura de datos (dividendos, eventos y noticias solo con un proveedor de licencia
-clara; más mercados de precios). Cualquier proveedor de pago, OCR externo o envío de
-documentos a terceros requiere autorización explícita.
+Fusionar el PR #2 cuando se autorice (no se ha fusionado en esta fase) y abordar la fase 10:
+producción, backups, monitorización y operativa en Bolivia. Queda pendiente una cola
+compartida (Redis/RQ o Celery) para varias réplicas y notificaciones PWA/Android, además de
+ampliar la cobertura de datos (dividendos, eventos y noticias solo con un proveedor de
+licencia clara). Cualquier proveedor de pago, OCR externo o envío de documentos a terceros
+requiere autorización explícita.
