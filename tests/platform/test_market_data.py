@@ -13,6 +13,7 @@ La suite nunca abre conexiones de red: cualquier llamada real sería un fallo.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -323,7 +324,13 @@ def test_price_sync_stores_daily_closes_with_adjusted_separate(client, settings)
         assert "exchange" not in request.url.params  # EE. UU. sin parámetro
         return httpx.Response(200, json=STOCKANALYSIS_PAYLOAD)
 
-    with mocked_service(settings, handler) as service:
+    # Este caso comprueba el almacenamiento de cierres y ajustados, no la frescura.
+    # La marca `stale` se calcula contra la fecha real de ejecución, y el payload
+    # usa fechas fijas: sin este ajuste el test caduca al pasar el umbral de días.
+    # La detección de datos viejos se cubre en `test_price_sync_flags_stale_history`.
+    storage_settings = dataclasses.replace(settings, data_stale_after_days=3650)
+
+    with mocked_service(storage_settings, handler) as service:
         result = service.sync_prices(uid)
 
     assert result["status"] == "success"
