@@ -24,6 +24,10 @@ node_modules/
 web/dist/
 web/.vite/
 
+# Artefactos de Playwright (trazas, vídeos, capturas e informes HTML)
+web/test-results/
+web/playwright-report/
+
 # Base de datos local y cachés de ejecución del backend
 var/
 *.db
