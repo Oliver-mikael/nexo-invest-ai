@@ -35,6 +35,8 @@ type Options = {
   method?: "GET" | "POST" | "PATCH" | "DELETE"
   body?: unknown
   signal?: AbortSignal
+  /** Token explícito (p. ej. al cerrar sesión después de limpiar el almacenamiento). */
+  token?: string
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -59,7 +61,7 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
-  const token = getToken()
+  const token = options.token ?? getToken()
   const headers: Record<string, string> = { Accept: "application/json" }
   if (options.body !== undefined) headers["Content-Type"] = "application/json"
   if (token) headers.Authorization = `Bearer ${token}`
@@ -313,7 +315,8 @@ export const authApi = {
   register: (email: string, password: string, display_name: string) =>
     api<AuthResponse>("/auth/register", { method: "POST", body: { email, password, display_name } }),
   me: () => api<User>("/auth/me"),
-  logout: () => api<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  logout: (token?: string) =>
+    api<{ ok: boolean }>("/auth/logout", { method: "POST", token }),
 }
 
 export const companiesApi = {

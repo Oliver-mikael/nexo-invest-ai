@@ -1,4 +1,4 @@
-import { test, expect, newUser, registerViaApi, bearer } from "./support/fixtures"
+import { test, expect, newUser, registerViaApi, bearer, TOKEN_KEY } from "./support/fixtures"
 
 // Comprobaciones de seguridad sobre la implementación real: la autorización se
 // hace en el backend, así que se verifica contra la API además de la UI.
@@ -93,6 +93,52 @@ test.describe("seguridad", () => {
       expect(body).not.toContain("sqlite")
       expect(body).toMatch(/not_found|no existe/i)
     }
+  })
+
+  test("el token sirve en la petición inmediatamente posterior a emitirlo", async ({ api }) => {
+    // Regresión: la sesión se confirmaba al cerrar la dependencia de base de
+    // datos, después de responder, así que la primera petición con el token
+    // recién creado podía recibir 401 de forma intermitente.
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const auth = await registerViaApi(api, newUser("e2e-inmediato"))
+      const me = await api.get("/api/v1/auth/me", { headers: bearer(auth.access_token) })
+      expect(me.status(), `intento ${attempt}`).toBe(200)
+    }
+  })
+
+  test("cerrar sesión borra el token antes de que el servidor responda", async ({
+    page,
+    user,
+  }) => {
+    await page.goto("/panel")
+    await expect(page.getByRole("heading", { name: new RegExp(`Hola, ${user.name}`) })).toBeVisible()
+
+    // La revocación remota tarda 1,5 s: la sesión local no puede esperarla.
+    await page.route("**/api/v1/auth/logout", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await route.continue()
+    })
+
+    const token = () => page.evaluate((key) => window.localStorage.getItem(key), TOKEN_KEY)
+    await page.getByRole("button", { name: "Salir" }).click()
+
+    await expect(page).toHaveURL(/\/acceder/)
+    await expect.poll(token, { timeout: 1000 }).toBeNull()
+  })
+
+  test("si la revocación falla, la sesión local se cierra igualmente", async ({ page, user }) => {
+    await page.goto("/panel")
+    await expect(page.getByRole("heading", { name: new RegExp(`Hola, ${user.name}`) })).toBeVisible()
+
+    await page.route("**/api/v1/auth/logout", (route) => route.abort())
+    await page.getByRole("button", { name: "Salir" }).click()
+
+    await expect(page).toHaveURL(/\/acceder/)
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), TOKEN_KEY)).toBeNull()
+
+    // La persistencia entre navegaciones se cubre en auth.spec con una sesión
+    // sembrada una sola vez: el fixture `user` vuelve a inyectar el token en
+    // cada carga y una recarga aquí no probaría nada del cierre de sesión.
   })
 
   test("el registro valida el correo y la contraseña en el servidor", async ({ api }) => {

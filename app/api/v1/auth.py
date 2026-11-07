@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import bearer_scheme, get_current_user, rate_limit
+from app.deps import bearer_scheme, client_key, get_current_user, rate_limit
 from app.errors import ApiError
 from app.models import AuditEvent, SessionToken, User, UserSettings, utcnow
 from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserOut
@@ -92,15 +92,20 @@ def register(
             action="auth.register",
             subject=user.email,
             meta={},
-            ip=request.client.host if request.client else "",
+            ip=client_key(request),
         )
     )
-    return _issue_token(
+    response = _issue_token(
         db,
         user,
         user_agent=request.headers.get("user-agent", ""),
         ttl_hours=settings.session_ttl_hours,
     )
+    # La sesión se confirma antes de responder: el cliente usa el token en cuanto
+    # recibe la respuesta y, si el commit quedara para el cierre de la dependencia,
+    # esa primera petición podría no encontrar la sesión y recibir 401.
+    db.commit()
+    return response
 
 
 @router.post(
@@ -125,7 +130,7 @@ def login(
                 action="auth.login_failed",
                 subject=payload.email[:160],
                 meta={},
-                ip=request.client.host if request.client else "",
+                ip=client_key(request),
             )
         )
         db.commit()
@@ -138,15 +143,20 @@ def login(
             action="auth.login",
             subject=user.email,
             meta={},
-            ip=request.client.host if request.client else "",
+            ip=client_key(request),
         )
     )
-    return _issue_token(
+    response = _issue_token(
         db,
         user,
         user_agent=request.headers.get("user-agent", ""),
         ttl_hours=settings.session_ttl_hours,
     )
+    # La sesión se confirma antes de responder: el cliente usa el token en cuanto
+    # recibe la respuesta y, si el commit quedara para el cierre de la dependencia,
+    # esa primera petición podría no encontrar la sesión y recibir 401.
+    db.commit()
+    return response
 
 
 @router.post("/logout", summary="Cerrar la sesión actual")
@@ -162,6 +172,10 @@ def logout(
         ).scalar_one_or_none()
         if row is not None:
             db.delete(row)
+    # Revocación confirmada antes del 200: un cliente que compruebe el token
+    # justo después debe recibir 401 de forma determinista, no según el momento
+    # en que se cierre la dependencia de base de datos.
+    db.commit()
     return {"ok": True, "user_id": user.id}
 
 
