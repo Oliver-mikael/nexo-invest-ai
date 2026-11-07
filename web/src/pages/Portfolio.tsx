@@ -126,7 +126,7 @@ export function Portfolio() {
                 className="field"
                 type="number"
                 min="100"
-                step="1000"
+                step="100"
                 value={createForm.starting_cash}
                 onChange={(event) => setCreateForm({ ...createForm, starting_cash: event.target.value })}
               />
