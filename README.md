@@ -253,3 +253,31 @@ Detalle completo en `docs/KNOWN_ISSUES.md`.
 Este software no constituye asesoramiento financiero personalizado ni garantía de
 rentabilidad. No ejecuta órdenes ni utiliza dinero real. Sus conclusiones son herramientas
 de análisis, no recomendaciones de inversión.
+
+## Validación E2E con navegador (Fase 1.2)
+
+La rama `feat/e2e-browser-validation` incluye una suite end-to-end con Playwright y
+Chromium real, ejecutada en dos proyectos: escritorio (1440×900) y móvil (Pixel 7).
+
+La suite arranca por sí misma el backend FastAPI con una base SQLite desechable
+(`var/e2e/`) y el servidor de Vite en un puerto propio; no toca la base de desarrollo
+ni requiere servicios externos. Cubre autenticación, protección de rutas, panel,
+empresas, investigación, informes, ajustes, cartera simulada y cartera real, más
+comprobaciones de seguridad (autorización en API, aislamiento entre usuarios,
+revocación de sesión, ausencia de secretos en la interfaz) y de móvil (menú, barra
+inferior, formularios y desbordamiento horizontal).
+
+```bash
+# Requisitos: Node 22, Python con el backend instalado y Chromium de Playwright
+cd web
+npm ci
+npx playwright install --with-deps chromium
+npm run e2e          # 35 casos por proyecto; informes en web/playwright-report/
+```
+
+El workflow `.github/workflows/ci.yml` incluye el job `e2e`, que instala Chromium con
+sus dependencias de sistema, ejecuta typecheck, build y la suite completa, y publica
+trazas, capturas, vídeos e informe HTML como artefacto.
+
+Ver [`docs/E2E_VALIDATION.md`](docs/E2E_VALIDATION.md) para arquitectura, rutas
+cubiertas, resultados exactos, defectos detectados, pendientes y limitaciones.
