@@ -136,6 +136,25 @@ docker compose up -d --build
 PostgreSQL solo es accesible desde la red interna de Docker; no se publica el puerto 5432 en
 el host. Compose no arranca si falta `POSTGRES_PASSWORD`.
 
+Para crear un backup coherente de PostgreSQL y documentos privados, con la API pausada durante
+la captura:
+
+```bash
+bash scripts/backup_compose.sh
+```
+
+El backup queda en `backups/` (o en `NEXO_BACKUP_DIR`) e incluye `SHA256SUMS`. Comprueba la
+integridad antes de una restauración usando la carpeta generada:
+
+```bash
+backup_dir=backups/20261109T000000Z # Sustituye por el nombre creado por el script
+(cd "$backup_dir" && sha256sum -c SHA256SUMS)
+```
+
+Conserva los backups fuera del servidor; el volumen de Docker no sustituye una copia externa.
+La restauración completa debe probarse antes de usar este flujo como plan de recuperación de
+producción.
+
 ### Pruebas
 
 ```bash

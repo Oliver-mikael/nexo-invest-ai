@@ -47,8 +47,9 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 No se presenta ninguna fase pendiente como terminada.
 
 Avance de fase 10: Compose exige `POSTGRES_PASSWORD` y mantiene PostgreSQL solo en la red
-interna de Docker. Siguen pendientes los backups/restauración verificados, la monitorización
-y la operativa específica de Bolivia.
+interna de Docker. `scripts/backup_compose.sh` genera un dump validado, un archivo de documentos
+y un manifiesto SHA-256; no se ha probado todavía una restauración completa. Siguen pendientes
+la validación de recuperación, la monitorización y la operativa específica de Bolivia.
 
 ## Modelo y reglas contables
 
