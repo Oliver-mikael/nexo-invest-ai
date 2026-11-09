@@ -128,8 +128,13 @@ cd web && npm run build                  # genera web/dist; FastAPI lo sirve en 
 Docker (API + PostgreSQL + PWA en una sola imagen):
 
 ```bash
+cp env.example .env
+# Define POSTGRES_PASSWORD con una clave segura y NEXO_SEC_CONTACT en .env
 docker compose up -d --build
 ```
+
+PostgreSQL solo es accesible desde la red interna de Docker; no se publica el puerto 5432 en
+el host. Compose no arranca si falta `POSTGRES_PASSWORD`.
 
 ### Pruebas
 

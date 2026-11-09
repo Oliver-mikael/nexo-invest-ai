@@ -1,9 +1,11 @@
-# Estado de la sesión — Nexo Invest AI 2.0Fecha: 2026-11-07 · Plataforma 2.0.1 · Motor 0.3.0
-Repositorio: `Oliver-mikael/nexo-invest-ai`
-Rama de trabajo: `feat/platform-v1` (PR #2, abierto y **sin fusionar**)
-Base remota: `f5b87c4`; integración por fast-forward (PR #2 abierto, sin fusionar)
+# Estado de la sesión — Nexo Invest AI 2.0
 
-`main` sigue en `84585a2`: no se ha modificado ni se ha fusionado ningún PR.
+Fecha: 2026-11-09 · Plataforma 2.0.1 · Motor 0.3.0
+Repositorio: `Oliver-mikael/nexo-invest-ai`
+Rama de trabajo: `feat/platform-v1` (rama local basada en `ae106dd`)
+PR #2: **MERGED** a `main` el 2026-11-07; sus checks de CI finalizaron correctamente.
+
+`main` está en `ae106dd`; no se modifica directamente.
 
 Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 
@@ -43,6 +45,10 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 | 11. Validación E2E en navegador y endurecimiento de seguridad (fases 1.2 y 1.3) | Completada y verificada en CI |
 
 No se presenta ninguna fase pendiente como terminada.
+
+Avance de fase 10: Compose exige `POSTGRES_PASSWORD` y mantiene PostgreSQL solo en la red
+interna de Docker. Siguen pendientes los backups/restauración verificados, la monitorización
+y la operativa específica de Bolivia.
 
 ## Modelo y reglas contables
 
