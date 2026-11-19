@@ -124,7 +124,7 @@ test.describe("ajustes", () => {
 test.describe("cartera simulada", () => {
   test("crea una cartera, muestra métricas y la conserva al recargar", async ({ page, user }) => {
     await page.goto("/cartera")
-    await expect(page.getByRole("heading", { name: "Cartera" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Cartera", exact: true })).toBeVisible()
 
     await expect(page.getByRole("heading", { name: "Crear cartera", exact: true })).toBeVisible()
 
