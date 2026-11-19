@@ -2,9 +2,27 @@
 
 ## Estado general
 
-Versión actual: 0.3.0
+Versión actual: plataforma 2.0.1 · motor 0.3.0
 Rama base: main
 Commit base: 0589554ac942059a1b6fa6f1afbe08a766584eaa
+
+Actualización vigente: 2026-11-10. El estado actual de las fases de plataforma está en
+`docs/SESSION_STATE.md`; los hitos y pendientes 0.3.0 que siguen son un registro histórico del
+motor y no deben interpretarse como estado de la plataforma 2.0.
+
+### Snapshot de cierre (2026-11-10)
+
+| Prioridad | Tarea | Estado |
+| --- | --- | --- |
+| P0 | Restore aislado DB + documentos y corrupción | Implementado y probado en PostgreSQL 16 desechable |
+| P0 | Límite de body HTTP y uploads acotados | Implementado; pruebas de frontera aprobadas |
+| P1 | Migraciones en PostgreSQL limpio | Fix de boolean defaults; ciclo real hasta head aprobado |
+| P1 | Imagen de producción y configuración segura | Build y smoke local aprobados; no desplegado |
+| P1 | Dependencias Python/npm auditadas | Cero advisories conocidos en requirements y lockfile |
+| P1 | E2E full tras fixes | Pendiente; 12 casos focalizados desktop/mobile aprobados |
+| P2 | Monitorización, backups externos, RPO/RTO | Pendiente de diseño/infraestructura |
+| P2 | Política de registro y bootstrap de cuentas | Requiere decisión operativa; altas abiertas por defecto |
+| P2 | Bolivia (brókers, impuestos y regulación) | Requiere investigación profesional, no resuelta por código |
 
 ## Hito A — Diagnóstico y base reproducible
 
@@ -336,7 +354,7 @@ Base: `f5b87c4` (PR #2, sin fusionar). `main` no se modifica.
   tráfico externo automático sin consentimiento.
 - 490 pruebas: 489 aprobadas, 1 omitida (red).
 
-### Fases 6 a 10 — Pendientes
+### Fases 6 a 10 — Snapshot histórico de 0.3.0 (no es estado vigente de la plataforma)
 
 5. **Datos (resto):** dividendos, eventos, calendarios y noticias requieren un proveedor
    con licencia clara; ampliar la cobertura de precios más allá de US/DE/ES/GB (LATAM sin
@@ -353,7 +371,7 @@ Base: `f5b87c4` (PR #2, sin fusionar). `main` no se modifica.
 10. **Producción:** backups verificados, monitorización, secretos, revisión legal/tributaria
     de Bolivia y costes.
 
-## Prioridades inmediatas
+## Prioridades históricas del motor 0.3.0
 
 - **Fuente primaria realmente independiente** (documento original en HTML de la SEC, otro
   registrador o datos de la propia empresa en su web): es la limitación más importante

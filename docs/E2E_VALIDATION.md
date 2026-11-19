@@ -1,10 +1,10 @@
 # Validación E2E y endurecimiento de seguridad (Fases 1.2 y 1.3)
 
-> **Estado: validado con ejecución real y publicado.** La suite de Playwright se
+> **Historial: validado con ejecución real.** La suite de Playwright se
 > ejecutó con Chromium 156.0.8078.4 (headless shell) sobre la aplicación completa
 > —backend FastAPI + frontend Vite— y terminó en verde en los dos proyectos.
-> El trabajo está integrado en `feat/platform-v1` (PR #2 hacia `main`) y el job
-> `e2e` de GitHub Actions se ejecuta en ese PR.
+> PR #2 fue integrado en `main` el 2026-11-07. Esta página describe esa ejecución histórica;
+> el estado E2E vigente tras los cambios del 2026-11-10 se registra en `docs/SESSION_STATE.md`.
 >
 > Base de la integración: `origin/feat/platform-v1` en `f5b87c4`, que ya contenía
 > los tres commits enviados previamente al PR #2. La integración fue

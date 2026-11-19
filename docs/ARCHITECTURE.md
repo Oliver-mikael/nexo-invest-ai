@@ -11,6 +11,25 @@ La plataforma 2.0 añade una cartera real multimercado sobre el motor y el backe
 motor financiero (SEC EDGAR, métricas, DCF, backtest) no se reescribe: se consume como
 biblioteca.
 
+## Operación de plataforma (2026-11)
+
+- FastAPI limita el body HTTP globalmente (`NEXO_MAX_REQUEST_BODY_BYTES`, 12 MiB por defecto)
+  antes del parseo de multipart; documentos leen como máximo `NEXO_MAX_UPLOAD_BYTES + 1` y las
+  importaciones tabulares 5 MiB + 1. Los cuerpos chunked también se cuentan por bloque.
+- En `NEXO_ENV=production`, CORS queda cerrado si no se declaran orígenes explícitos.
+  Desarrollo conserva el wildcard por defecto para Vite. PostgreSQL no publica su puerto en
+  Compose y exige una contraseña explícita.
+- `scripts/backup_compose.sh` pausa la API durante la captura, genera `pg_dump` formato custom,
+  un tar de documentos, metadatos y SHA-256, valida los archivos y reanuda la API incluso tras
+  errores o señales.
+- `scripts/restore_compose.sh` valida checksum, metadatos y rutas del tar antes de arrancar un
+  proyecto Compose separado, sin puertos publicados y con volúmenes nuevos. Restaura DB y
+  documentos, verifica el esquema Alembic y los archivos, y deja un registro. No altera ni
+  elimina instalaciones existentes; el operador elimina el proyecto temporal tras inspeccionarlo.
+- `scripts/test_compose_recovery.sh` ejecuta migraciones, datos y documentos contra PostgreSQL 16
+  real y prueba backup incompleto/corrupto, traversal, symlinks, fallo de restauración, colisión
+  de destino, limpieza y reactivación de API. No sustituye una restauración de producción.
+
 ## Plataforma multimercado (2.0)
 
 ### Capas nuevas

@@ -1,9 +1,20 @@
 # CHANGELOG — Nexo Invest AI
 
+## Trabajo local de preparación operativa — 2026-11-10
+
+- PostgreSQL exige contraseña y no publica `5432`; CORS de producción cerrado por defecto.
+- Límite ASGI global de 12 MiB configurable, conteo de cuerpos chunked y lecturas acotadas en
+  endpoints de documentos/importaciones.
+- Backup verificable y restore aislado para PostgreSQL + documentos; prueba real con PostgreSQL 16,
+  migraciones de Nexo, corruption/traversal, limpieza y recuperación de API.
+- Corregidos defaults Boolean incompatibles en PostgreSQL y carrera de commit en creación de cartera.
+- Pillow 13, pypdf 6.21, Vite 6, React Router 7 y Capacitor 8; audits Python/npm sin advisories
+  conocidos.
+- E2E full pendiente de repetición tras fixes; 12 casos focalizados desktop/mobile pasaron.
+
 ## 2.0.1 — 2026-11-07 (validación en navegador y endurecimiento de seguridad)
 
-Integrado en `feat/platform-v1` (PR #2 hacia `main`) por fast-forward sobre `f5b87c4`.
-`main` sin tocar.
+Validación registrada antes de fusionarse el PR #2, que se integró en `main` el 2026-11-07.
 
 ### Validación E2E (fase 1.2)
 

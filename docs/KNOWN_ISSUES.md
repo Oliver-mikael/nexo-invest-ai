@@ -1,6 +1,6 @@
 # KNOWN_ISSUES — Nexo Invest AI
 
-Actualizado: 2026-11-02 · Plataforma 2.0 · Motor 0.3.0
+Actualizado: 2026-11-19 · Plataforma 2.0.1 · Motor 0.3.0
 
 Este documento recoge las limitaciones **reales y comprobadas** del sistema, no las que
 existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
@@ -19,11 +19,9 @@ existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
   instala Tesseract. Si falta, la API devuelve 503 y no finge una extracción.
 - **No hay APK Android.** La PWA es instalable, pero Capacitor no se ha generado ni probado
   en dispositivo/emulador; no se declara un APK inexistente.
-- **No hay alertas ni notificaciones.** La recopilación de datos ya tiene su propia cola
-  ligera en proceso (`DataSyncRunner`, con recuperación y anti-duplicados), pero sigue sin
-  haber workers independientes para la investigación, scheduler de alertas ni avisos
-  PWA/Android. La cola actual es un `ThreadPoolExecutor` en proceso y no sirve para varias
-  réplicas: eso es trabajo de la fase 6.
+- **Alertas declarativas y scheduler implementados; notificaciones push pendientes.**
+  `JobRunner` y `DataSyncRunner` siguen en proceso; varias réplicas requieren una cola/estado
+  compartidos. No hay notificaciones PWA/Android.
 - **No hay ejecución de órdenes ni conexión con brókers.** El nombre del bróker es texto; no
   se guardan credenciales. La plataforma es de seguimiento y registro.
 - **TWR depende del histórico de precios/divisas.** Si falta una valoración en una fecha de
@@ -44,8 +42,19 @@ existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
 - **La importación no guarda el archivo original**, solo el hash y las filas normalizadas de
   la previsualización. Para auditoría documental de importaciones hará falta una fase
   posterior.
-- **No hay pruebas de navegador.** La interfaz se verifica con TypeScript y build, no con
-  Playwright ni capturas automatizadas. Afecta también a la página `/datos`.
+- **La suite Playwright requiere estabilización final.** El último run completo obtuvo 68
+  aprobadas y 7 omitidas; una prueba de redirección no autenticada falló una vez, mientras que
+  la misma prueba aislada pasó y 5 repeticiones consecutivas aprobaron. No se declara estable
+  hasta una repetición completa sin fallos.
+- **Restore probado solo con dataset desechable.** Se verificó recuperación PostgreSQL+archivos
+  y errores en contenedores temporales; no se ha ensayado una copia real del operador ni medido
+  RPO/RTO. Los backups deben copiarse fuera del host.
+- **Registro abierto por defecto.** `NEXO_ALLOW_REGISTRATION` sigue en `true`; el operador debe
+  decidir si el despliegue admite altas públicas y cerrarlo cuando exista un proceso de provisión
+  de cuentas.
+- **Dependencias auditadas 2026-11-10:** `pip-audit -r requirements.txt` y `npm audit` no
+  encontraron vulnerabilidades conocidas tras los upgrades. La auditoría no garantiza ausencia
+  de vulnerabilidades futuras.
 
 ## Datos automáticos (fase 5)
 

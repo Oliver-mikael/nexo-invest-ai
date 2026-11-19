@@ -222,3 +222,51 @@ exige API key con CAPTCHA y limita el uso a particular; Yahoo devolvió 429 en e
 - Cobertura de precios fuera de US/DE/ES/GB y fundamentales fuera de emisores con CIK:
   declarada como no soportada, sin sustituto.
 - Sin pruebas de navegador para la página `/datos`; se verifica con TypeScript y build.
+
+## 2026-11-10 · Auditoría P0/P1, recuperación y configuración de producción
+
+### Estado Git y PR
+
+- Rama local: `feat/platform-v1`, basada en `main` integrado en `ae106dd`.
+- PR #2: **MERGED** el 2026-11-07; los cuatro checks publicados pasaron.
+- Los commits `85557d5` y `eef8439` son locales; no se hizo push, merge ni despliegue.
+
+### Pruebas ejecutadas
+
+```bash
+python -m pytest
+# 552 passed, 1 skipped, 1 warning
+python -m ruff check src app tests
+# All checks passed
+python -m pip_audit -r requirements.txt
+# No known vulnerabilities found
+cd web && npm ci --no-audit --no-fund
+cd web && npm run typecheck && npm run build
+# OK
+cd web && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+docker build -t nexo-invest-ai:validation .
+# imagen compilada
+bash scripts/test_compose_recovery.sh
+# Recovery integration checks passed con PostgreSQL 16 real y volúmenes desechables
+bash scripts/test_compose_image.sh
+# smoke aprobado: migraciones, health, CORS y límite 413
+```
+
+Los 12 E2E focalizados (rutas privadas, autorización de cartera y creación de cartera; desktop y
+mobile, repetidos dos veces tras los upgrades web) pasaron. El último full run anterior a los fixes
+fue 74/76; no se volvió a ejecutar el total de 76 después de corregir las dos causas encontradas.
+Un primer intento en el host no pudo lanzar Chromium por falta de `libatk`; los E2E focalizados se
+ejecutaron en la imagen oficial de Playwright.
+
+### Hallazgos corregidos
+
+- Migración `2b7d5f3a91e4`: `BOOLEAN DEFAULT 0` fallaba en PostgreSQL. `sa.false()` permite el
+  upgrade limpio hasta `f2a7d91c3e04`.
+- Uploads de documentos/importaciones ahora leen como máximo límite + 1 byte; middleware ASGI
+  limita también JSON/multipart declarado y chunked, con rechazo 400 de `Content-Length` inválido.
+- CORS producción cerrado por defecto, con orígenes explícitos opcionales.
+- `create_portfolio` confirma antes de responder, evitando un GET inmediato 404 por carrera de DB.
+- Pillow/pypdf y Vite/React Router/Capacitor actualizados a versiones auditadas sin advisories.
+- Backup/restore real de esquema de Nexo, fila `User`/`Document` y archivo probado. Datos de
+  producción, copia off-host, RPO/RTO y monitorización siguen pendientes.

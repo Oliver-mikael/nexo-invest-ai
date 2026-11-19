@@ -1,6 +1,6 @@
 # Estado de la sesión — Nexo Invest AI 2.0
 
-Fecha: 2026-11-09 · Plataforma 2.0.1 · Motor 0.3.0
+Fecha: 2026-11-19 · Plataforma 2.0.1 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
 Rama de trabajo: `feat/platform-v1` (rama local basada en `ae106dd`)
 PR #2: **MERGED** a `main` el 2026-11-07; sus checks de CI finalizaron correctamente.
@@ -47,9 +47,10 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 No se presenta ninguna fase pendiente como terminada.
 
 Avance de fase 10: Compose exige `POSTGRES_PASSWORD` y mantiene PostgreSQL solo en la red
-interna de Docker. `scripts/backup_compose.sh` genera un dump validado, un archivo de documentos
-y un manifiesto SHA-256; no se ha probado todavía una restauración completa. Siguen pendientes
-la validación de recuperación, la monitorización y la operativa específica de Bolivia.
+interna de Docker y cierra CORS por defecto. El body HTTP está limitado y los uploads se leen
+con un máximo explícito. Backup y restore aislado se probaron con PostgreSQL 16 y archivos
+reales de prueba; no con datos de producción. Siguen pendientes monitorización, política de altas,
+copia externa automatizada, RPO/RTO y operativa específica de Bolivia.
 
 ## Modelo y reglas contables
 
@@ -99,7 +100,7 @@ Tablas de datos automáticos (fase 5): `provider_runs`, `data_cache`, `fundament
 - Los mercados de referencia se siembran al arrancar (`app/services/reference.py`) de forma
   idempotente.
 
-## Verificación exacta
+## Verificación histórica (2026-11-07)
 
 ```bash
 python3 -m pytest
@@ -170,17 +171,19 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
 2. OCR real no probado en este workspace: falta el binario Tesseract. El flujo con extractor
    simulado y la ruta de error 503 sí están probados.
 3. Sin APK/Capacitor probado; la PWA es instalable, nada más.
-4. La recopilación de datos tiene su cola ligera en proceso con recuperación y
-   anti-duplicados; la investigación sigue con `JobRunner`. Ninguna soporta varias
-   réplicas sin una cola compartida, y siguen sin haber alertas ni notificaciones.
-5. Sin tesis versionadas, oportunidades por horizonte ni backtesting multimercado.
+4. Recopilación de datos, alertas, scheduler, tesis, oportunidades y backtesting multimercado
+  están implementados. Los runners siguen en proceso y requieren cola compartida para varias
+  réplicas; notificaciones PWA/Android siguen pendientes.
+5. El backtest está implementado, pero la evidencia de rendimiento está limitada a pocos activos
+  y periodos; no prueba generalización.
 6. Consolidado multi-divisa solo por grupos; no hay total único sin tipo de cambio explícito.
 7. SQLite no conserva precisión decimal exacta en almacenamiento; producción debe usar
    PostgreSQL.
-8. No hay pruebas de navegador; la UI se verificó con TypeScript y build.
+8. La suite Playwright existe; 12 casos focalizados desktop/mobile pasaron tras los fixes. El
+  último full run antes de esos fixes fue 74/76; falta repetir el conjunto completo.
 9. No se ha investigado la disponibilidad real de brókers desde Bolivia ni implicaciones
    fiscales; requiere trabajo documental y asesoría profesional, no código.
-10. `main` no se ha tocado, el PR #2 no se ha fusionado y no se ha desplegado nada.
+10. `main` no se ha tocado y no se ha desplegado nada. PR #2 está fusionado desde 2026-11-07.
 
 ## Fases 1.2 y 1.3: validación en navegador y seguridad
 
@@ -198,11 +201,20 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
   dependiente del reloj.
 - Detalle completo en [`docs/E2E_VALIDATION.md`](E2E_VALIDATION.md).
 
+## Verificación operativa actual
+
+- `python -m pytest`: 552 passed, 1 skipped; Ruff limpio.
+- TypeScript, build Vite y `npm audit`: correctos; cero advisories npm. `pip-audit -r
+  requirements.txt`: cero advisories conocidos.
+- PostgreSQL 16 real: migración limpia, backup/restore de esquema y datos, archivos, escenarios
+  corruptos/incompletos/inseguros y cleanup pasaron en contenedores desechables.
+- Imagen `nexo-invest-ai:validation`: build y smoke completos (health, migraciones, CORS y 413).
+- E2E completo: reejecutado en 2026-11-19; 68 aprobadas y 7 omitidas exclusivas de viewport,
+  con una falla intermitente de protección de ruta. La prueba aislada pasó 1/1 y 5 repeticiones
+  consecutivas aprobaron; falta una repetición completa estable antes de declararla aprobada.
+
 ## Próximo paso recomendado
 
-Fusionar el PR #2 cuando se autorice (no se ha fusionado en esta fase) y abordar la fase 10:
-producción, backups, monitorización y operativa en Bolivia. Queda pendiente una cola
-compartida (Redis/RQ o Celery) para varias réplicas y notificaciones PWA/Android, además de
-ampliar la cobertura de datos (dividendos, eventos y noticias solo con un proveedor de
-licencia clara). Cualquier proveedor de pago, OCR externo o envío de documentos a terceros
-requiere autorización explícita.
+Reejecutar los 76 E2E, añadir observabilidad y formalizar retención/copia externa y RPO/RTO.
+La validación de Bolivia, fiscal/tributaria y cualquier proveedor de pago requieren investigación
+o autorización fuera del código local.

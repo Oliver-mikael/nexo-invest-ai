@@ -129,12 +129,18 @@ Docker (API + PostgreSQL + PWA en una sola imagen):
 
 ```bash
 cp env.example .env
-# Define POSTGRES_PASSWORD con una clave segura y NEXO_SEC_CONTACT en .env
+# Genera una clave sin caracteres reservados de URL: openssl rand -hex 32
+# Define POSTGRES_PASSWORD y NEXO_SEC_CONTACT en .env
 docker compose up -d --build
 ```
 
 PostgreSQL solo es accesible desde la red interna de Docker; no se publica el puerto 5432 en
 el host. Compose no arranca si falta `POSTGRES_PASSWORD`.
+El backend rechaza cuerpos HTTP mayores de 12 MiB por defecto; los archivos individuales
+admiten hasta 10 MiB y las importaciones tabulares hasta 5 MiB. `NEXO_MAX_REQUEST_BODY_BYTES`
+permite ajustar el límite total sin quitar los límites específicos.
+En producción CORS está cerrado por defecto; configura `NEXO_CORS_ORIGINS` solo si el frontend
+se sirve desde otro origen.
 
 Para crear un backup coherente de PostgreSQL y documentos privados, con la API pausada durante
 la captura:
@@ -144,23 +150,35 @@ bash scripts/backup_compose.sh
 ```
 
 El backup queda en `backups/` (o en `NEXO_BACKUP_DIR`) e incluye `SHA256SUMS`. Comprueba la
-integridad antes de una restauración usando la carpeta generada:
+integridad y restáuralo primero en un proyecto Docker aislado:
 
 ```bash
 backup_dir=backups/20261109T000000Z # Sustituye por el nombre creado por el script
 (cd "$backup_dir" && sha256sum -c SHA256SUMS)
+bash scripts/restore_compose.sh "$backup_dir"
 ```
 
-Conserva los backups fuera del servidor; el volumen de Docker no sustituye una copia externa.
-La restauración completa debe probarse antes de usar este flujo como plan de recuperación de
-producción.
+Restaura primero en un proyecto Docker aislado; el procedimiento valida integridad, dump,
+esquema, registros documentales y archivos, sin tocar los volúmenes de producción:
+
+```bash
+bash scripts/restore_compose.sh "$backup_dir"
+```
+
+El proyecto restaurado queda activo para inspección, escribe `RESTORE_RESULT.txt` y muestra el
+comando de limpieza. Conserva los backups fuera del servidor. La prueba local usó datos de test;
+no mide RPO/RTO ni sustituye una restauración periódica del backup real del operador.
+
+La estrategia propuesta de RPO/RTO, copia externa cifrada y monitorización mínima está
+documentada en [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ### Pruebas
 
 ```bash
-pytest              # 461 pruebas recolectadas: 460 aprobadas, 1 omitida (red), sin red
+python -m pytest    # 552 passed, 1 skipped (prueba histórica con red), último resultado local
 ruff check src app tests
 cd web && npm run typecheck && npm run build
+cd web && npm audit --audit-level=moderate
 ```
 
 ## Instalación

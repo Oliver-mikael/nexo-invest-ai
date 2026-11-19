@@ -252,6 +252,11 @@ uniformes:
   La imagen instala `tesseract-ocr` y `tesseract-ocr-spa` para el OCR local.
 - Migraciones al arrancar (`alembic upgrade head`), healthcheck real.
 - `env.example` lista todas las variables; ninguna clave real está en el repo.
+- Compose exige `POSTGRES_PASSWORD`, no publica PostgreSQL y el backend aplica un límite de body
+  HTTP global de 12 MiB; CORS de producción queda cerrado salvo orígenes declarados.
+- Backup/restore: `scripts/backup_compose.sh` y `scripts/restore_compose.sh`. La restauración
+  usa un proyecto y volúmenes aislados; la prueba con PostgreSQL 16 cubre esquema, DB, archivos,
+  corrupción, rutas inseguras y cleanup. No se ha restaurado información de producción.
 - Costes orientativos (2026): una instancia pequeña (1 vCPU/1 GB) y Postgres
   gestionado básico suelen entrar en planes gratuitos o de ~5–15 USD/mes. El
   coste variable real es la IA: con `gpt-4o-mini`, un informe estándar de cinco
@@ -263,12 +268,13 @@ PWA lo sirve el propio backend, así que no hay que desplegar dos servicios.
 
 ## 9. Pruebas
 
-- Suite total: **461 recolectadas, 460 aprobadas, 1 omitida** por depender de red (sin red
-  en ninguna prueba de plataforma).
+- Suite Python: **552 aprobadas, 1 omitida** por depender de red (no hay llamadas de red en
+  pruebas de plataforma).
 - Cartera real: 10 pruebas numéricas del motor contable y 11 de API (aislamiento,
   importación, documentos, cotizaciones privadas y `as_of`).
 - CI: motor (3.10/3.12), Ruff, migraciones (upgrade/check/downgrade), arranque de
   la API y build de la PWA con verificación de artefactos.
+- Typecheck/build y auditoría npm aprobados; full E2E aún pendiente tras los últimos fixes.
 
 ## 10. Limitaciones declaradas
 
@@ -279,17 +285,18 @@ PWA lo sirve el propio backend, así que no hay que desplegar dos servicios.
    consultadas; cualquier ticker de la SEC se abre manualmente.
 3. **Cartera simulada sin benchmark automático**: el precio de las posiciones usa Yahoo
    (fuente no oficial) y el benchmark queda en `null` salvo que se añada la serie.
-4. **Cartera real sin proveedor automático de precios/noticias**: la valoración usa
-   cotizaciones registradas con fuente y fecha (manuales/importadas). No hay sincronización
-   programada ni feeds de noticias, dividendos o calendarios; es la siguiente fase.
+4. **Cobertura parcial de datos automáticos**: hay precios históricos US/DE/ES/GB, divisas y
+  fundamentales SEC para CIK. Noticias, dividendos, eventos y calendarios siguen sin proveedor;
+  no se declaran como disponibles ni se inventan.
 5. **OCR condicionado al entorno**: requiere el binario `tesseract-ocr`. En este workspace
    no está instalado, por lo que la ruta se prueba con un extractor simulado; el contenedor
    sí lo instala. Si falta, la API responde 503 y no finge una extracción.
-6. **Cola en proceso**: una sola réplica sin Redis. La cartera real no usa la cola; las
-   actualizaciones automáticas y alertas aún no están implementadas.
+6. **Cola en proceso**: una sola réplica sin Redis. Alertas y actualización automática están
+  implementadas, pero varias réplicas requieren una cola/estado compartidos y no hay push PWA.
 7. **Límite de peticiones en memoria**: válido para una instancia.
-8. **Sin pruebas de navegador**: no se añadió Playwright; el frontend se verifica
-   con TypeScript y build, no con capturas automatizadas.
+8. **E2E completo pendiente de repetir**: Playwright está implementado; los casos focalizados
+  de cartera, autorización y rutas pasaron en desktop/mobile. El último full run tuvo 2 fallos
+  que se corrigieron, pero aún no se ha repetido todo el conjunto.
 9. **Sin APK**: no se generó ni probó Capacitor; la estructura PWA queda lista.
 10. **Auditoría numérica heurística**: detecta cifras no rastreables, no errores
     semánticos ni citas falsas de texto.
