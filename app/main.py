@@ -26,6 +26,7 @@ from app.ai.orchestrator import AIOrchestrator
 from app.config import Settings, load_settings
 from app.db import configure, init_db
 from app.errors import install_error_handlers
+from app.middleware import RequestBodyLimitMiddleware
 from app.services.data.runner import DataSyncRunner
 from app.services.data.sync import DataSyncService
 from app.services.engine import EngineService
@@ -119,8 +120,12 @@ def create_app(
         license_info={"name": "MIT"},
     )
     application.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_bytes=resolved.max_request_body_bytes,
+    )
+    application.add_middleware(
         CORSMiddleware,
-        allow_origins=resolved.cors_origins or ["*"],
+        allow_origins=resolved.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],

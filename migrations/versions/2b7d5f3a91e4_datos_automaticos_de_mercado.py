@@ -117,12 +117,12 @@ def upgrade() -> None:
 
     with op.batch_alter_table('instruments', schema=None) as batch_op:
         batch_op.add_column(sa.Column(
-            'auto_sync_prices', sa.Boolean(), nullable=False, server_default=sa.text('0')
+            'auto_sync_prices', sa.Boolean(), nullable=False, server_default=sa.false()
         ))
 
     with op.batch_alter_table('quotes', schema=None) as batch_op:
         batch_op.add_column(sa.Column(
-            'adjusted', sa.Boolean(), nullable=False, server_default=sa.text('0')
+            'adjusted', sa.Boolean(), nullable=False, server_default=sa.false()
         ))
 
     with op.batch_alter_table('fx_rates', schema=None) as batch_op:

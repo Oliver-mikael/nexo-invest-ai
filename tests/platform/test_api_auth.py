@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.config import load_settings
 from tests.platform.conftest import auth_headers, register
 
 
@@ -19,6 +20,23 @@ def test_health_and_openapi(client):
     assert "/api/v1/auth/login" in paths
     assert "/api/v1/companies/{ticker}/valuation" in paths
     assert "/api/v1/research" in paths
+
+
+def test_production_cors_is_closed_without_explicit_origins(monkeypatch):
+    monkeypatch.setenv("NEXO_ENV", "production")
+    monkeypatch.setenv("NEXO_CORS_ORIGINS", "")
+
+    assert load_settings().cors_origins == []
+
+
+def test_production_cors_allows_only_explicit_origins(monkeypatch):
+    monkeypatch.setenv("NEXO_ENV", "production")
+    monkeypatch.setenv("NEXO_CORS_ORIGINS", "https://app.example.test, https://admin.example.test")
+
+    assert load_settings().cors_origins == [
+        "https://app.example.test",
+        "https://admin.example.test",
+    ]
 
 
 def test_register_login_logout(client):

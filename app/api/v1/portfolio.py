@@ -76,6 +76,7 @@ def create_portfolio(
             meta={"starting_cash": payload.starting_cash},
         )
     )
+    db.commit()
     return {
         "id": portfolio.id,
         "name": portfolio.name,

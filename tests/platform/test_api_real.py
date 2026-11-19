@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 from decimal import Decimal
+
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.services.ocr import Extraction
 from tests.platform.conftest import auth_headers, register
@@ -46,6 +49,18 @@ def _movement(client, headers, account_id, body):
     return client.post(
         f"/api/v1/real/accounts/{account_id}/movements", headers=headers, json=body
     )
+
+
+def _track_upload_read_limits(monkeypatch):
+    sizes = []
+    original_read = StarletteUploadFile.read
+
+    async def tracked_read(upload, size=-1):
+        sizes.append(size)
+        return await original_read(upload, size)
+
+    monkeypatch.setattr(StarletteUploadFile, "read", tracked_read)
+    return sizes
 
 
 def test_markets_instruments_quotes_and_fx(client):
@@ -531,6 +546,24 @@ def test_csv_import_invalid_rows_block_confirmation_unless_partial(client):
     assert partial.json()["errors"]
 
 
+def test_import_upload_reads_only_one_byte_over_limit(client, monkeypatch):
+    token = register(client, email="large-import@nexo.invalid")["access_token"]
+    headers = auth_headers(token)
+    account_id = _account(client, headers)
+    monkeypatch.setattr("app.api.v1.imports.MAX_IMPORT_BYTES", 32)
+    read_sizes = _track_upload_read_limits(monkeypatch)
+
+    response = client.post(
+        f"/api/v1/real/accounts/{account_id}/imports/preview",
+        headers=headers,
+        files={"file": ("large.csv", b"x" * 256, "text/csv")},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "file_too_large"
+    assert read_sizes == [33]
+
+
 def test_document_upload_extract_confirm_and_delete_controls(client, monkeypatch):
     token = register(client, email="doc1@nexo.invalid")["access_token"]
     headers = auth_headers(token)
@@ -635,3 +668,20 @@ def test_document_upload_extract_confirm_and_delete_controls(client, monkeypatch
         ).status_code
         == 404
     )
+
+
+def test_document_upload_reads_only_one_byte_over_limit(client, monkeypatch):
+    token = register(client, email="large-document@nexo.invalid")["access_token"]
+    client.app_state.settings = replace(client.app_state.settings, max_upload_bytes=32)
+    read_sizes = _track_upload_read_limits(monkeypatch)
+    png = b"\x89PNG\r\n\x1a\n" + b"x" * 256
+
+    response = client.post(
+        "/api/v1/real/documents",
+        headers=auth_headers(token),
+        files={"file": ("large.png", png, "image/png")},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "file_too_large"
+    assert read_sizes == [33]

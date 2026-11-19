@@ -1,7 +1,7 @@
 """esquema inicial de la plataforma
 
 Revision ID: 1af6489f6582
-Revises: 
+Revises:
 Create Date: 2026-10-31 02:14:58.719115
 """
 

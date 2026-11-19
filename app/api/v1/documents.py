@@ -121,14 +121,15 @@ async def upload_document(
             "unsupported_document",
             "Solo se admiten imágenes JPEG/PNG/WebP o PDF.",
         )
-    content = await file.read()
+    max_upload_bytes = max(0, settings.max_upload_bytes)
+    content = await file.read(max_upload_bytes + 1)
     if not content:
         raise ApiError(422, "empty_file", "El documento está vacío.")
-    if len(content) > settings.max_upload_bytes:
+    if len(content) > max_upload_bytes:
         raise ApiError(
             413,
             "file_too_large",
-            f"El documento supera el límite de {settings.max_upload_bytes // (1024 * 1024)} MB.",
+            f"El documento supera el límite de {max_upload_bytes // (1024 * 1024)} MB.",
         )
     if not _matches_signature(content, content_type):
         raise ApiError(

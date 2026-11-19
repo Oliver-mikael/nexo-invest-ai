@@ -145,6 +145,7 @@ class Settings:
     # Documentos privados de la cartera real (nunca dentro de un directorio público).
     documents_dir: str = ""
     max_upload_bytes: int = 10 * 1024 * 1024
+    max_request_body_bytes: int = 12 * 1024 * 1024
     max_import_rows: int = 2000
 
     # Fase 5: recopilación automática de datos de mercado.
@@ -278,15 +279,17 @@ def load_settings() -> Settings:
     ai_disabled = _env_bool("NEXO_AI_DISABLED")
     prices = dict(DEFAULT_PRICES)
     prices.update(_env_json("NEXO_AI_PRICES"))  # type: ignore[arg-type]
-    origins = [o.strip() for o in _env("NEXO_CORS_ORIGINS", "*").split(",") if o.strip()]
+    environment = _env("NEXO_ENV", "development")
+    cors_default = "" if environment == "production" else "*"
+    origins = [o.strip() for o in _env("NEXO_CORS_ORIGINS", cors_default).split(",") if o.strip()]
     return Settings(
-        environment=_env("NEXO_ENV", "development"),
+        environment=environment,
         database_url=_env("DATABASE_URL") or _env("NEXO_DATABASE_URL"),
         auto_create_schema=_env_bool("NEXO_AUTO_CREATE_SCHEMA", True),
         sql_echo=_env_bool("NEXO_SQL_ECHO", False),
         session_ttl_hours=_env_int("NEXO_SESSION_TTL_HOURS", 72),
         allow_registration=_env_bool("NEXO_ALLOW_REGISTRATION", True),
-        cors_origins=origins or ["*"],
+        cors_origins=origins or ([] if environment == "production" else ["*"]),
         rate_limit_per_minute=_env_int("NEXO_RATE_LIMIT_PER_MINUTE", 120),
         trusted_proxies=[
             proxy.strip()
@@ -313,6 +316,7 @@ def load_settings() -> Settings:
             "NEXO_DOCUMENTS_DIR", str(DEFAULT_PROJECT_ROOT / "var" / "documents")
         ),
         max_upload_bytes=_env_int("NEXO_MAX_UPLOAD_BYTES", 10 * 1024 * 1024),
+        max_request_body_bytes=_env_int("NEXO_MAX_REQUEST_BODY_BYTES", 12 * 1024 * 1024),
         max_import_rows=_env_int("NEXO_MAX_IMPORT_ROWS", 2000),
         fx_provider=_env("NEXO_FX_PROVIDER", "frankfurter"),
         fx_secondary_provider=_env("NEXO_FX_SECONDARY_PROVIDER", "erapi"),

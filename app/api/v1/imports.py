@@ -88,7 +88,7 @@ async def preview_import(
     account = _account_or_404(db, user, account_id)
     if date_order not in {"dmy", "mdy"}:
         raise ApiError(422, "invalid_date_order", "El orden de fecha debe ser dmy o mdy.")
-    content = await file.read()
+    content = await file.read(MAX_IMPORT_BYTES + 1)
     if len(content) > MAX_IMPORT_BYTES:
         raise ApiError(413, "file_too_large", "El archivo supera el límite de 5 MB.")
     if not content:
