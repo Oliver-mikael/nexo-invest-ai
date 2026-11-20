@@ -50,16 +50,20 @@ test.describe("landing pública", () => {
 })
 
 test.describe("protección de rutas privadas", () => {
-  test("sin sesión, cada ruta privada redirige a /acceder con su destino", async ({ page }) => {
-    for (const route of PRIVATE_ROUTES) {
+  for (const route of PRIVATE_ROUTES) {
+    test(`sin sesión, ${route} redirige a /acceder con su destino`, async ({ page }) => {
+      // Cada ruta usa un contexto Playwright nuevo: ni navegación ni estado de
+      // autenticación de otra ruta pueden influir en esta comprobación.
+      await page.goto("/")
+      expect(await page.evaluate(() => window.localStorage.getItem("nexo.token"))).toBeNull()
       await page.goto(route)
       await expect(page, `destino de ${route}`).toHaveURL(/\/acceder\?destino=/)
 
       const url = new URL(page.url())
       expect(url.pathname, `ruta de ${route}`).toBe("/acceder")
       expect(url.searchParams.get("destino"), `destino de ${route}`).toBe(route)
-    }
-  })
+    })
+  }
 })
 
 test.describe("navegación autenticada", () => {
