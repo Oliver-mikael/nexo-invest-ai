@@ -2,10 +2,11 @@
 
 Fecha: 2026-11-20 · Plataforma 2.0.1 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
-Rama de trabajo: `feat/platform-v1`; HEAD previo a esta tarea: `fabeb83`
+Rama de desarrollo conservada: `feat/platform-v1`; al inicio de la consolidación estaba en
+`fabeb83`. El avance quedó integrado en `main` mediante fast-forward el 2026-11-20.
 PR #2: **MERGED** a `main` el 2026-11-07; sus checks de CI finalizaron correctamente.
 
-`main` está en `ae106dd`; no se modifica directamente.
+`main` estaba en `ae106dd` al inicio de la consolidación. La SHA vigente se consulta en Git.
 
 Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 
