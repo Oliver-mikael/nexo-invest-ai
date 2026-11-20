@@ -32,6 +32,7 @@ api = [
     "Pillow>=13.0.0,<14.0",
     "pypdf>=6.21.4,<7.0",
     "pytesseract>=0.3.10,<0.4",
+    "cryptography>=50,<51",
 ]
 dev = [
     "pytest>=7.0",
@@ -46,6 +47,7 @@ dev = [
     "Pillow>=13.0.0,<14.0",
     "pypdf>=6.21.4,<7.0",
     "pytesseract>=0.3.10,<0.4",
+    "cryptography>=50,<51",
 ]
 
 [project.scripts]

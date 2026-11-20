@@ -14,3 +14,5 @@ pypdf>=6.21.4,<7.0
 pytesseract>=0.3.10,<0.4
 # Solo necesaria cuando DATABASE_URL apunta a PostgreSQL.
 psycopg[binary]>=3.1,<4
+# Cifrado autenticado de backups antes de almacenarlos fuera del servidor.
+cryptography>=50,<51
