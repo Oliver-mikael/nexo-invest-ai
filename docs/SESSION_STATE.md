@@ -1,8 +1,8 @@
 # Estado de la sesión — Nexo Invest AI 2.0
 
-Fecha: 2026-11-19 · Plataforma 2.0.1 · Motor 0.3.0
+Fecha: 2026-11-20 · Plataforma 2.0.1 · Motor 0.3.0
 Repositorio: `Oliver-mikael/nexo-invest-ai`
-Rama de trabajo: `feat/platform-v1` (rama local basada en `ae106dd`)
+Rama de trabajo: `feat/platform-v1`; HEAD previo a esta tarea: `fabeb83`
 PR #2: **MERGED** a `main` el 2026-11-07; sus checks de CI finalizaron correctamente.
 
 `main` está en `ae106dd`; no se modifica directamente.
@@ -41,16 +41,20 @@ Documento de continuidad: lo necesario para retomar sin reconstruir contexto.
 | 7. Multiagentes por horizonte y tesis versionadas | Completada: investigación multiagente con tesis y oportunidades |
 | 8. Backtesting multimercado | Completada: motor determinista con costes, divisas y walk-forward |
 | 9. Interfaz completa, watchlist, oportunidades y Android | Completada la interfaz (seguimiento, alertas, tesis, backtests, tareas); APK no generado |
-| 10. Producción, backups, monitorización y Bolivia | Pendiente |
+| 10. Producción, backups y monitorización | Parcial: backup cifrado y monitor local; proveedor externo, scheduler y operación real pendientes |
 | 11. Validación E2E en navegador y endurecimiento de seguridad (fases 1.2 y 1.3) | Completada y verificada en CI |
 
 No se presenta ninguna fase pendiente como terminada.
 
-Avance de fase 10: Compose exige `POSTGRES_PASSWORD` y mantiene PostgreSQL solo en la red
+Avance de fase 10: Compose exige `POSTGRES_PASSWORD`, mantiene PostgreSQL solo en la red
 interna de Docker y cierra CORS por defecto. El body HTTP está limitado y los uploads se leen
-con un máximo explícito. Backup y restore aislado se probaron con PostgreSQL 16 y archivos
-reales de prueba; no con datos de producción. Siguen pendientes monitorización, política de altas,
-copia externa automatizada, RPO/RTO y operativa específica de Bolivia.
+con un máximo explícito. Se añadió cifrado AES-256-GCM, almacenamiento local de simulación,
+retención y registro; se probó restauración de PostgreSQL y documentos en otro proyecto Compose
+con datos desechables. No se conectó almacenamiento remoto ni se usaron datos financieros reales.
+Monitorización local implementada, pero sin scheduler ni receptor de alertas configurado.
+RPO/RTO medidos solo en el host de prueba; no son garantías. Siguen pendientes proveedor
+autorizado, restauración en host físico independiente, operación programada y requisitos de
+Bolivia.
 
 ## Modelo y reglas contables
 
@@ -179,15 +183,19 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
 6. Consolidado multi-divisa solo por grupos; no hay total único sin tipo de cambio explícito.
 7. SQLite no conserva precisión decimal exacta en almacenamiento; producción debe usar
    PostgreSQL.
-8. La suite Playwright existe; 12 casos focalizados desktop/mobile pasaron tras los fixes. El
-  último full run antes de esos fixes fue 74/76; falta repetir el conjunto completo.
+8. La prueba previa de rutas privadas no se pudo reproducir en el entorno actual y no se dispone
+  de su traza histórica para atribuir una causa definitiva. La prueba compartía un contexto
+  Playwright para 13 rutas; ahora cada ruta se ejecuta en contexto de test aislado y verifica
+  explícitamente que no hay token. Pasaron 260 repeticiones de rutas anónimas, 20 repeticiones
+  de navegación autenticada y dos suites completas consecutivas.
 9. No se ha investigado la disponibilidad real de brókers desde Bolivia ni implicaciones
    fiscales; requiere trabajo documental y asesoría profesional, no código.
-10. `main` no se ha tocado y no se ha desplegado nada. PR #2 está fusionado desde 2026-11-07.
+10. No se ha desplegado la aplicación. PR #2 está fusionado desde 2026-11-07; la integración
+  posterior de ramas Git no constituye un despliegue.
 
 ## Fases 1.2 y 1.3: validación en navegador y seguridad
 
-- **Suite E2E** (`web/tests/e2e/`, 38 casos por proyecto): autenticación, 13 rutas privadas,
+- **Suite E2E** (`web/tests/e2e/`, 50 casos por proyecto): autenticación, 13 rutas privadas,
   navegación del shell, estado de cada pantalla, seguridad y móvil. Backend y Vite propios,
   base SQLite desechable en `var/e2e/`, sin IA ni trabajos de fondo. Job `e2e` en CI con
   Chromium y artefactos ante fallo.
@@ -201,20 +209,70 @@ El contenedor instala `tesseract-ocr` y `tesseract-ocr-spa`, monta
   dependiente del reloj.
 - Detalle completo en [`docs/E2E_VALIDATION.md`](E2E_VALIDATION.md).
 
-## Verificación operativa actual
+## Verificación
 
-- `python -m pytest`: 552 passed, 1 skipped; Ruff limpio.
-- TypeScript, build Vite y `npm audit`: correctos; cero advisories npm. `pip-audit -r
-  requirements.txt`: cero advisories conocidos.
-- PostgreSQL 16 real: migración limpia, backup/restore de esquema y datos, archivos, escenarios
-  corruptos/incompletos/inseguros y cleanup pasaron en contenedores desechables.
-- Imagen `nexo-invest-ai:validation`: build y smoke completos (health, migraciones, CORS y 413).
-- E2E completo: reejecutado en 2026-11-19; 68 aprobadas y 7 omitidas exclusivas de viewport,
-  con una falla intermitente de protección de ruta. La prueba aislada pasó 1/1 y 5 repeticiones
-  consecutivas aprobaron; falta una repetición completa estable antes de declararla aprobada.
+### Resultados registrados en ciclos anteriores
 
-## Próximo paso recomendado
+Los resultados siguientes se conservaron en sus sesiones/documentos y no se repitieron en la
+verificación del 2026-11-20:
 
-Reejecutar los 76 E2E, añadir observabilidad y formalizar retención/copia externa y RPO/RTO.
-La validación de Bolivia, fiscal/tributaria y cualquier proveedor de pago requieren investigación
-o autorización fuera del código local.
+- Suite completa Python: 556 aprobadas, 1 omitida; Ruff completo limpio.
+- TypeScript, build PWA, `npm audit` y `pip-audit` reportados correctos.
+- Dos suites E2E Chromium reportadas con 93 aprobadas y 7 omitidas cada una. El artefacto local
+  `.last-run.json` indica `passed`, pero no conserva el recuento.
+- Compose y restauración PostgreSQL/documentos locales reportados correctos. La medición
+  histórica de RPO/RTO solo cubre contenedores locales con artefactos desechables, no un host
+  independiente ni un servicio en producción. Véase [`docs/OPERATIONS.md`](OPERATIONS.md).
+
+### Verificación de continuidad del 2026-11-20
+
+- Pasaron **98 pruebas selectivas**: backup cifrado, límite HTTP, autenticación/sesiones,
+  identidad del cliente, contabilidad real, tesis/oportunidades, backtests, proveedores de datos
+  y automatización. Se usaron SQLite temporal y respuestas simuladas; no se ejecutó la suite
+  completa ni se hicieron llamadas financieras externas.
+- Ruff pasó sobre los módulos y pruebas de backup/monitor/límites HTTP.
+- Pytest emitió una advertencia conocida de deprecación Starlette/httpx.
+- No se ejecutó Playwright ni la integración de recuperación Compose: esta última puede crear y
+  eliminar contenedores/volúmenes. El Codespace no tenía contenedores activos y Compose no pudo
+  resolver su configuración por variables obligatorias ausentes.
+- Los resultados anteriores no deben presentarse como recién ejecutados. No se asigna un
+  porcentaje de avance: no hay una métrica objetiva de preparación comercial o de inteligencia.
+
+## Continuidad y trabajo pendiente
+
+Las capacidades de negocio listadas al inicio describen código conectado, no certificación
+comercial. El backup cifrado y el monitor actuales son herramientas locales; un directorio
+configurado como destino no es un proveedor remoto. Las tareas están ordenadas por dependencias:
+
+1. **Seguridad de acceso:** decidir el alta de usuarios y el bootstrap administrativo. El
+   registro está habilitado por defecto; deshabilitarlo o controlar invitaciones antes de
+   exponer la aplicación públicamente.
+2. **Recuperación externa:** elegir y autorizar un proveedor/destino fuera del host; implementar
+   su adaptador y permisos mínimos. No hay conector remoto implementado.
+3. **Custodia de claves:** custodiar la clave fuera del servidor y del repositorio, probar la
+   recuperación de esa clave e implementar rotación/versionado conservando las claves antiguas
+   mientras existan copias que dependan de ellas.
+4. **Operación programada:** programar backup y monitor mediante un supervisor del host,
+   configurar alertas externas y vigilar también la indisponibilidad del propio monitor.
+5. **Prueba de desastre:** restaurar desde el destino autorizado en un host diferente, con
+   datos desechables; verificar base y documentos y medir RPO/RTO de extremo a extremo.
+6. **Escalabilidad:** los workers y el limitador son por proceso; definir cola y estado
+   compartidos, almacenamiento documental compartido, coordinación de scheduler y migraciones
+   antes de ejecutar varias réplicas.
+7. **Cobertura financiera:** resolver fuentes y licencias para noticias, dividendos, eventos,
+   calendarios y precios LATAM; documentar frescura y calidad. Los precios actuales son diarios
+   y la cobertura implementada es limitada; no son cotizaciones en tiempo real.
+8. **Inteligencia de inversión:** ampliar cobertura y validación de datos, análisis de riesgos,
+   escenarios y diversidad de periodos/activos. Mantener trazabilidad, incertidumbre explícita y
+   separación entre cálculo determinista e interpretación de IA.
+9. **Evaluación histórica:** registrar resultados observables de tesis y predicciones, definir
+   métricas y ventanas fuera de muestra, y medir sesgos antes de hablar de aprendizaje. Hoy hay
+   historial versionado y eventos, no un ciclo validado de aprendizaje predictivo.
+10. **Producto comercial:** validar problemas, flujo y confianza con usuarios; definir soporte,
+    privacidad/retención, costes y condiciones de datos, y obtener revisión profesional de
+    obligaciones legales/fiscales en los mercados objetivo, incluido Bolivia.
+
+**Próximo paso recomendado:** resolver primero la política de registro y obtener autorización
+del destino externo y de sus custodios. Con esas decisiones, desarrollar el adaptador remoto;
+después completar programación y recuperación independiente. La disponibilidad de proveedor,
+infraestructura y responsables es un prerrequisito, no trabajo que pueda simularse en código.

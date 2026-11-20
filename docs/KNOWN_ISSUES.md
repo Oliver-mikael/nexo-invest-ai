@@ -42,19 +42,25 @@ existían en ciclos anteriores. Lo que ya está resuelto no se repite aquí.
 - **La importación no guarda el archivo original**, solo el hash y las filas normalizadas de
   la previsualización. Para auditoría documental de importaciones hará falta una fase
   posterior.
-- **La suite Playwright requiere estabilización final.** El último run completo obtuvo 68
-  aprobadas y 7 omitidas; una prueba de redirección no autenticada falló una vez, mientras que
-  la misma prueba aislada pasó y 5 repeticiones consecutivas aprobaron. No se declara estable
-  hasta una repetición completa sin fallos.
-- **Restore probado solo con dataset desechable.** Se verificó recuperación PostgreSQL+archivos
-  y errores en contenedores temporales; no se ha ensayado una copia real del operador ni medido
-  RPO/RTO. Los backups deben copiarse fuera del host.
+- **El fallo histórico de redirección Playwright no tiene traza disponible y no se reprodujo.**
+  La prueba se aisló por ruta/contexto y comprobó explícitamente ausencia de token: pasaron
+  260 repeticiones anónimas, 20 autenticadas y dos suites completas consecutivas (93 aprobadas,
+  7 omisiones intencionales por viewport cada una). La causa original no se puede atribuir a
+  una regresión de la aplicación con la evidencia conservada.
+- **Backup cifrado y restauración probados solo con datos desechables en un host local.**
+  AES-256-GCM, SHA-256, retención y registros sanitizados tienen pruebas automatizadas; la
+  integración recuperó PostgreSQL 16 y documentos en un segundo proyecto Compose local.
+  RPO medido 0,184 s y RTO local 8,175 s (no garantías). No existe conexión a proveedor externo
+  ni ensayo en host físico independiente.
+- **Monitorización implementada como comprobación local manual**, no servicio administrado:
+  no se ha configurado scheduler, webhook ni alerta si el host o el proceso monitor dejan de
+  funcionar. Hace falta monitor externo autorizado y un destino de backups off-host.
 - **Registro abierto por defecto.** `NEXO_ALLOW_REGISTRATION` sigue en `true`; el operador debe
   decidir si el despliegue admite altas públicas y cerrarlo cuando exista un proceso de provisión
   de cuentas.
-- **Dependencias auditadas 2026-11-10:** `pip-audit -r requirements.txt` y `npm audit` no
-  encontraron vulnerabilidades conocidas tras los upgrades. La auditoría no garantiza ausencia
-  de vulnerabilidades futuras.
+- **Dependencias auditadas 2026-11-19:** `pip-audit -r requirements.txt` y `npm audit` no
+  encontraron vulnerabilidades conocidas; se elevó `cryptography` a la rama corregida 50.x.
+  La auditoría no garantiza ausencia de vulnerabilidades futuras.
 
 ## Datos automáticos (fase 5)
 

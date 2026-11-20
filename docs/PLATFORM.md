@@ -256,7 +256,12 @@ uniformes:
   HTTP global de 12 MiB; CORS de producción queda cerrado salvo orígenes declarados.
 - Backup/restore: `scripts/backup_compose.sh` y `scripts/restore_compose.sh`. La restauración
   usa un proyecto y volúmenes aislados; la prueba con PostgreSQL 16 cubre esquema, DB, archivos,
-  corrupción, rutas inseguras y cleanup. No se ha restaurado información de producción.
+  corrupción, rutas inseguras y cleanup. `scripts/external_backup.py` añade AES-256-GCM,
+  SHA-256, retención y almacén local de simulación. No hay proveedor remoto ni restauración de
+  información de producción.
+- Monitorización local: `scripts/monitor.py` comprueba API, PostgreSQL, antigüedad/resultado del
+  backup, espacio y marcadores críticos; webhook opcional desactivado por defecto. No hay
+  scheduler ni servicio de alertas configurado.
 - Costes orientativos (2026): una instancia pequeña (1 vCPU/1 GB) y Postgres
   gestionado básico suelen entrar en planes gratuitos o de ~5–15 USD/mes. El
   coste variable real es la IA: con `gpt-4o-mini`, un informe estándar de cinco
@@ -268,13 +273,16 @@ PWA lo sirve el propio backend, así que no hay que desplegar dos servicios.
 
 ## 9. Pruebas
 
-- Suite Python: **552 aprobadas, 1 omitida** por depender de red (no hay llamadas de red en
+- Suite Python: **556 aprobadas, 1 omitida** por depender de red (no hay llamadas de red en
   pruebas de plataforma).
 - Cartera real: 10 pruebas numéricas del motor contable y 11 de API (aislamiento,
   importación, documentos, cotizaciones privadas y `as_of`).
 - CI: motor (3.10/3.12), Ruff, migraciones (upgrade/check/downgrade), arranque de
   la API y build de la PWA con verificación de artefactos.
-- Typecheck/build y auditoría npm aprobados; full E2E aún pendiente tras los últimos fixes.
+- Ruff, TypeScript, build, `npm audit` y `pip-audit` aprobados. Playwright Chromium completo:
+  dos ejecuciones consecutivas, cada una con 93 aprobadas y 7 omitidas intencionalmente por
+  viewport. Recuperación local cifrada PostgreSQL/documentos: RPO de prueba 0,184 s y RTO
+  8,175 s; sin proveedor externo.
 
 ## 10. Limitaciones declaradas
 
@@ -294,9 +302,9 @@ PWA lo sirve el propio backend, así que no hay que desplegar dos servicios.
 6. **Cola en proceso**: una sola réplica sin Redis. Alertas y actualización automática están
   implementadas, pero varias réplicas requieren una cola/estado compartidos y no hay push PWA.
 7. **Límite de peticiones en memoria**: válido para una instancia.
-8. **E2E completo pendiente de repetir**: Playwright está implementado; los casos focalizados
-  de cartera, autorización y rutas pasaron en desktop/mobile. El último full run tuvo 2 fallos
-  que se corrigieron, pero aún no se ha repetido todo el conjunto.
+8. **La prueba histórica E2E de rutas privadas no conserva traza suficiente para identificar
+  su fallo original.** No se reprodujo; se aisló cada ruta en un contexto fresco y dos suites
+  completas consecutivas pasaron. Véase [`docs/SESSION_STATE.md`](SESSION_STATE.md).
 9. **Sin APK**: no se generó ni probó Capacitor; la estructura PWA queda lista.
 10. **Auditoría numérica heurística**: detecta cifras no rastreables, no errores
     semánticos ni citas falsas de texto.
